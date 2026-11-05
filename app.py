@@ -832,36 +832,29 @@ def api_ssl_content(domain):
                             if line.startswith("SAVED_CF_Token="):
                                 token = line.split("=", 1)[1].strip("'\"")
                                 result['dns_provider'] = 'dns_cf'
-                                result['dns_api_key_masked'] = _mask_secret(token)
+                                result['dns_api_key'] = token or None
                             elif line.startswith("SAVED_CF_Account_ID="):
                                 acid = line.split("=", 1)[1].strip("'\"")
                                 if acid:
-                                    result['dns_api_secret_masked'] = _mask_secret(acid)
+                                    result['dns_api_secret'] = acid
                             elif line.startswith("SAVED_DP_Id="):
                                 token = line.split("=", 1)[1].strip("'\"")
                                 result['dns_provider'] = 'dns_dp'
-                                result['dns_api_key_masked'] = _mask_secret(token)
+                                result['dns_api_key'] = token or None
                             elif line.startswith("SAVED_DP_Key="):
                                 token = line.split("=", 1)[1].strip("'\"")
-                                result['dns_api_secret_masked'] = _mask_secret(token)
+                                result['dns_api_secret'] = token
                             elif line.startswith("SAVED_Ali_Key="):
                                 token = line.split("=", 1)[1].strip("'\"")
                                 result['dns_provider'] = 'dns_ali'
-                                result['dns_api_key_masked'] = _mask_secret(token)
+                                result['dns_api_key'] = token or None
                             elif line.startswith("SAVED_Ali_Secret="):
                                 token = line.split("=", 1)[1].strip("'\"")
-                                result['dns_api_secret_masked'] = _mask_secret(token)
+                                result['dns_api_secret'] = token
                 except Exception:
                     pass
             return jsonify(result)
     return jsonify({'error': 'Not found'}), 404
-
-
-def _mask_secret(secret):
-    """脱敏: 前8位****后4位"""
-    if not secret or len(secret) <= 12:
-        return '****'
-    return secret[:8] + '****' + secret[-4:]
 
 
 # ============ API: 日志 ============

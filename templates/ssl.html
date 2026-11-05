@@ -147,19 +147,30 @@
                     </div>
                 </div>
                 <div id="dnsCredBox" style="margin-top:16px;display:none">
+                    <h4 style="margin-bottom:12px">{{ t('ssl.reissue_title') }}</h4>
                     <div class="form-group">
                         <label>{{ t('ssl.dns_provider') }}</label>
-                        <input type="text" class="form-input" id="dnsProviderInput" readonly>
+                        <select id="reissueDnsProvider" class="form-select">
+                            <option value="dns_cf">{{ t('ssl.dns_provider_cf') }}</option>
+                            <option value="dns_dp">{{ t('ssl.dns_provider_dp') }}</option>
+                            <option value="dns_ali">{{ t('ssl.dns_provider_ali') }}</option>
+                        </select>
                     </div>
                     <div class="form-group">
-                        <label>{{ t('ssl.dns_api_key') }} ({{ t('ssl.masked') }})</label>
-                        <input type="text" class="form-input" id="dnsKeyMaskedInput" readonly>
+                        <label>{{ t('ssl.dns_api_key') }}</label>
+                        <input type="text" id="reissueDnsKey" class="form-input">
                     </div>
-                    <div class="form-group" id="dnsSecretGroup" style="display:none">
-                        <label>{{ t('ssl.dns_api_secret') }} ({{ t('ssl.masked') }})</label>
-                        <input type="text" class="form-input" id="dnsSecretMaskedInput" readonly>
+                    <div class="form-group">
+                        <label>{{ t('ssl.dns_api_secret') }}</label>
+                        <input type="text" id="reissueDnsSecret" class="form-input">
                     </div>
-                    <p class="text-muted" style="font-size:0.8rem">{{ t('ssl.dns_credential_hint') }}</p>
+                    <div class="checkbox-group">
+                        <label class="checkbox"><input type="checkbox" id="reissueTestMode"> {{ t('ssl.test_mode') }}</label>
+                    </div>
+                    <button class="btn btn-primary" onclick="reissueCert()" id="reissueBtn">
+                        <i class="fas fa-rotate"></i> {{ t('ssl.reissue') }}
+                    </button>
+                    <div id="reissueMsg" class="form-msg"></div>
                 </div>
             </div>
             <div class="tab-content" id="tab-cert-content">
@@ -326,26 +337,51 @@ function viewCert(domain) {
             document.getElementById('certPathInput').value = data.cert_path || '-';
             document.getElementById('keyPathInput').value = data.key_path || '-';
 
-            // DNS 凭证
+            // DNS 凭证 (可编辑)
             if (data.dns_provider) {
-                const providerNames = {
-                    'dns_cf': 'Cloudflare',
-                    'dns_dp': 'DNSPod',
-                    'dns_ali': 'Aliyun DNS',
-                };
-                document.getElementById('dnsProviderInput').value = providerNames[data.dns_provider] || data.dns_provider;
-                document.getElementById('dnsKeyMaskedInput').value = data.dns_api_key_masked || '-';
-                if (data.dns_api_secret_masked) {
-                    document.getElementById('dnsSecretGroup').style.display = 'block';
-                    document.getElementById('dnsSecretMaskedInput').value = data.dns_api_secret_masked;
-                } else {
-                    document.getElementById('dnsSecretGroup').style.display = 'none';
-                }
+                document.getElementById('reissueDnsProvider').value = data.dns_provider;
+                document.getElementById('reissueDnsKey').value = data.dns_api_key || '';
+                document.getElementById('reissueDnsSecret').value = data.dns_api_secret || '';
                 document.getElementById('dnsCredBox').style.display = 'block';
             } else {
                 document.getElementById('dnsCredBox').style.display = 'none';
             }
         });
+
+function reissueCert() {
+    const btn = document.getElementById('reissueBtn');
+    const msgEl = document.getElementById('reissueMsg');
+    const domain = document.getElementById('certViewDomain').textContent;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> {{ t("ssl.issuing") }}';
+    msgEl.innerHTML = '';
+
+    const data = {
+        domain: domain,
+        dns_provider: document.getElementById('reissueDnsProvider').value,
+        dns_api_key: document.getElementById('reissueDnsKey').value,
+        dns_api_secret: document.getElementById('reissueDnsSecret').value,
+        key_length: 'ec-256',
+        test: document.getElementById('reissueTestMode').checked,
+    };
+    fetch('/api/ssl/issue', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(r => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-rotate"></i> {{ t("ssl.reissue") }}';
+        if (r.success) {
+            msgEl.innerHTML = '<span style="color:var(--success)">' + (r.message || 'OK') + '</span>';
+            showToast('{{ t("ssl.issue_success") }}', 'success');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            msgEl.innerHTML = '<span style="color:var(--error)">' + (r.error || '{{ t("ssl.issue_failed") }}') + '</span>';
+        }
+    });
+}
 }
 
 function copyText(elementId) {
