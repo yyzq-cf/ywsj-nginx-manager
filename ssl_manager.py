@@ -264,7 +264,24 @@ def list_certs():
     certs = []
     acme_dir = Path(ACME_HOME)
     
-    for d in sorted(acme_dir.iterdir()):
+    try:
+        acme_entries = sorted(acme_dir.iterdir())
+    except (PermissionError, OSError) as e:
+        logger.warning(f"Cannot read acme dir {ACME_HOME}: {e}")
+        # 尝试用 sudo 列出
+        try:
+            result = subprocess.run(
+                ["sudo", "-n", "ls", "-1", ACME_HOME],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                acme_entries = [acme_dir / line.strip() for line in result.stdout.split('\n') if line.strip()]
+            else:
+                return []
+        except Exception:
+            return []
+    
+    for d in acme_entries:
         if not d.is_dir() or d.name.startswith("."):
             continue
         if d.name in ["account.conf", "acme.sh", "acme.sh.log", "http.header"]:

@@ -24,6 +24,7 @@ chown -R appuser:appgroup /data /var/www/html
 chown -R appuser:appgroup /etc/nginx
 chown -R appuser:appgroup /var/log/nginx
 chown -R appuser:appgroup /var/lib/nginx
+chown -R appuser:appgroup /root/.acme.sh 2>/dev/null || true
 chown appuser:appgroup /run/nginx.pid 2>/dev/null || true
 chmod -R 755 /var/log/nginx /etc/nginx/ssl /etc/nginx/conf.d
 
