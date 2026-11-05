@@ -354,7 +354,27 @@ function reissueCert() {
     const domain = document.getElementById('certViewDomain').textContent;
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> {{ t("ssl.issuing") }}';
-    msgEl.innerHTML = '';
+
+    // 进度提示
+    let step = 0;
+    const steps = [
+        '{{ t("ssl.step_validate") }}',
+        '{{ t("ssl.step_dns") }}',
+        '{{ t("ssl.step_issue") }}',
+        '{{ t("ssl.step_install") }}',
+    ];
+    const progressEl = document.createElement('div');
+    progressEl.id = 'reissueProgress';
+    progressEl.style.cssText = 'margin-top:8px;font-size:0.8rem;color:var(--muted)';
+    msgEl.parentNode.insertBefore(progressEl, msgEl.nextSibling);
+
+    const progressInterval = setInterval(() => {
+        step = Math.min(step + 1, steps.length - 1);
+        const dots = '.'.repeat(step % 4);
+        progressEl.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> ' + steps[step] + dots + ' <span class="text-muted">(' + ((step+1) * 25) + '%)</span>';
+    }, 5000);
+
+    msgEl.innerHTML = '<span style="color:var(--accent)"><i class="fas fa-circle-notch fa-spin"></i> {{ t("ssl.step_start") }}</span>';
 
     const data = {
         domain: domain,
@@ -371,15 +391,24 @@ function reissueCert() {
     })
     .then(r => r.json())
     .then(r => {
+        clearInterval(progressInterval);
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-rotate"></i> {{ t("ssl.reissue") }}';
+        progressEl.remove();
         if (r.success) {
-            msgEl.innerHTML = '<span style="color:var(--success)">' + (r.message || 'OK') + '</span>';
+            msgEl.innerHTML = '<span style="color:var(--success)"><i class="fas fa-check-circle"></i> ' + (r.message ? r.message.substring(0, 100) : 'OK') + '</span>';
             showToast('{{ t("ssl.issue_success") }}', 'success');
-            setTimeout(() => location.reload(), 1500);
+            setTimeout(() => location.reload(), 2000);
         } else {
-            msgEl.innerHTML = '<span style="color:var(--error)">' + (r.error || '{{ t("ssl.issue_failed") }}') + '</span>';
+            msgEl.innerHTML = '<span style="color:var(--error)"><i class="fas fa-exclamation-circle"></i> ' + (r.error || '{{ t("ssl.issue_failed") }}') + '</span>';
         }
+    })
+    .catch(err => {
+        clearInterval(progressInterval);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-rotate"></i> {{ t("ssl.reissue") }}';
+        if (progressEl.parentNode) progressEl.remove();
+        msgEl.innerHTML = '<span style="color:var(--error)">Network error: ' + err + '</span>';
     });
 }
 }
