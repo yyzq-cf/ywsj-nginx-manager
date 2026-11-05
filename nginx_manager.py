@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 NGINX_CONF_DIR = "/etc/nginx/conf.d"
 NGINX_SSL_DIR = "/etc/nginx/ssl"
 NGINX_LOG_DIR = "/var/log/nginx"
-NGINX_BIN = "/usr/sbin/nginx"
+NGINX_BIN = "sudo /usr/sbin/nginx"
 
 
 def ensure_dirs():
@@ -31,7 +31,7 @@ def nginx_test():
     """
     try:
         result = subprocess.run(
-            [NGINX_BIN, "-t"],
+            NGINX_BIN.split() + ["-t"],
             capture_output=True, text=True, timeout=10
         )
         output = (result.stdout + result.stderr).strip()
@@ -56,7 +56,7 @@ def nginx_reload():
     
     try:
         result = subprocess.run(
-            [NGINX_BIN, "-s", "reload"],
+            NGINX_BIN.split() + ["-s", "reload"],
             capture_output=True, text=True, timeout=10
         )
         if result.returncode == 0:
@@ -307,7 +307,7 @@ def get_nginx_status():
     
     try:
         result = subprocess.run(
-            [NGINX_BIN, "-v"],
+            "sudo /usr/sbin/nginx -v", shell=True,
             capture_output=True, text=True, timeout=5
         )
         version_output = result.stderr + result.stdout

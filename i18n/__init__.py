@@ -98,7 +98,7 @@ def init_i18n(app):
                 app._i18n_translations[lang] = data
 
     app.jinja_env.globals['t'] = t
-    app.jinja_env.globals['supported_languages'] = SUPPORTED_LANGUAGES
+    app.jinja_env.globals['supported_languages'] = lambda: SUPPORTED_LANGUAGES
     app.jinja_env.globals['current_language'] = get_locale
 
     app.logger.info(f'i18n initialized: {list(app._i18n_translations.keys())}')

@@ -4,18 +4,28 @@ set -e
 echo "[entrypoint] ywsj-nginx-manager starting..."
 
 # 确保目录存在
-mkdir -p /data /etc/nginx/conf.d /etc/nginx/ssl /var/log/nginx /var/www/html
+mkdir -p /data /etc/nginx/conf.d /etc/nginx/ssl /var/log/nginx /var/www/html /var/lib/nginx/body /var/lib/nginx/proxy /var/lib/nginx/fastcgi /var/lib/nginx/uwsgi /var/lib/nginx/scgi /run
 
-# 修复权限
-chown -R appuser:appgroup /data /var/www/html
-chown -R nginx:nginx /var/log/nginx /etc/nginx/ssl /etc/nginx/conf.d
+# 检查 nginx 是否支持 stream 模块 (在改权限前以 root 执行)
+if nginx -t 2>&1 | grep -q 'unknown directive "stream"'; then
+    echo "[entrypoint] nginx does not support stream module, removing stream block..."
+    sed -i '/^stream {/,/^}$/d' /etc/nginx/nginx.conf
+fi
 
-# 启动 nginx (前台 daemon off)
+# 先以 root 启动 nginx (前台 daemon off, 后台运行)
 nginx -t 2>/dev/null && echo "[entrypoint] nginx config OK" || echo "[entrypoint] nginx config not ready yet"
 nginx -g 'daemon off;' &
 
-# 等待 nginx 启动
+# 等 nginx 启动
 sleep 1
+
+# 修复权限 (在 nginx 启动后, 给 Flask appuser 读写权限)
+chown -R appuser:appgroup /data /var/www/html
+chown -R appuser:appgroup /etc/nginx
+chown -R appuser:appgroup /var/log/nginx
+chown -R appuser:appgroup /var/lib/nginx
+chown appuser:appgroup /run/nginx.pid 2>/dev/null || true
+chmod -R 755 /var/log/nginx /etc/nginx/ssl /etc/nginx/conf.d
 
 # 启动 Flask
 if [ "$(id -u)" = '0' ]; then
