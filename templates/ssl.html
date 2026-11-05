@@ -29,12 +29,12 @@
                     <td>
                         {% if cert.expire_date %}
                         <span class="text-muted">{{ cert.expire_date[:11] }}</span>
-                        {% if cert.expire_timestamp %}
-                            {% set days_left = (cert.expire_timestamp - none | int) // 86400 %}
-                        {% endif %}
                         {% endif %}
                     </td>
                     <td>
+                        <button class="btn btn-sm btn-ghost" onclick="viewCert('{{ cert.domain }}')" title="{{ t('common.edit') }}">
+                            <i class="fas fa-eye"></i>
+                        </button>
                         <button class="btn btn-sm btn-ghost" onclick="renewCert('{{ cert.domain }}')" title="{{ t('ssl.renew') }}">
                             <i class="fas fa-rotate"></i>
                         </button>
@@ -118,6 +118,52 @@
         </div>
     </div>
 </div>
+
+<!-- View Certificate Modal -->
+<div class="modal-overlay" id="certViewModal">
+    <div class="modal" style="max-width:720px">
+        <div class="modal-header">
+            <h3><i class="fas fa-shield-halved"></i> {{ t('ssl.view_title') }}: <span id="certViewDomain" class="mono"></span></h3>
+            <button class="modal-close" onclick="closeModal('certViewModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('tab-cert-info', this)">{{ t('ssl.tab_info') }}</button>
+                <button class="tab" onclick="switchTab('tab-cert-content', this)">{{ t('ssl.tab_cert') }}</button>
+                <button class="tab" onclick="switchTab('tab-key-content', this)">{{ t('ssl.tab_key') }}</button>
+            </div>
+            <div class="tab-content active" id="tab-cert-info">
+                <div id="certInfoBox">
+                    <p class="text-muted">{{ t('common.loading') }}</p>
+                </div>
+                <div id="certPathsBox" style="margin-top:16px">
+                    <div class="form-group">
+                        <label>{{ t('ssl.cert_path') }}</label>
+                        <input type="text" class="form-input" id="certPathInput" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>{{ t('ssl.key_path') }}</label>
+                        <input type="text" class="form-input" id="keyPathInput" readonly>
+                    </div>
+                </div>
+            </div>
+            <div class="tab-content" id="tab-cert-content">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                    <span class="text-muted" style="font-size:0.8rem">{{ t('ssl.cert_content') }}</span>
+                    <button class="btn btn-sm btn-ghost" onclick="copyText('certContent')"><i class="fas fa-copy"></i> {{ t('ssl.copy') }}</button>
+                </div>
+                <textarea class="form-textarea" id="certContent" rows="16" readonly style="font-size:0.8rem"></textarea>
+            </div>
+            <div class="tab-content" id="tab-key-content">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                    <span class="text-muted" style="font-size:0.8rem">{{ t('ssl.key_content') }}</span>
+                    <button class="btn btn-sm btn-ghost" onclick="copyText('keyContent')"><i class="fas fa-copy"></i> {{ t('ssl.copy') }}</button>
+                </div>
+                <textarea class="form-textarea" id="keyContent" rows="16" readonly style="font-size:0.8rem"></textarea>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -131,7 +177,6 @@ function toggleDnsFields() {
     const keyHint = document.getElementById('dnsApiKeyHint');
     const secretHint = document.getElementById('dnsApiSecretHint');
     const secretLabel = document.getElementById('dnsApiSecretLabel');
-    const keyLabel = document.getElementById('dnsApiKeyLabel');
     
     const hints = {
         'dns_cf': {
@@ -184,7 +229,6 @@ function checkWildcard() {
     const hint = document.getElementById('wildcardHint');
     if (domain.startsWith('*.')) {
         hint.style.display = 'block';
-        // 自动选中 DNS API 并禁用 standalone
         document.getElementById('standaloneMode').checked = false;
     } else {
         hint.style.display = 'none';
@@ -226,6 +270,54 @@ function revokeCert(domain) {
     fetch(`/api/ssl/${encodeURIComponent(domain)}/revoke`, { method:'DELETE' })
         .then(r => r.json())
         .then(r => { if (r.success) { showToast(i18n.t('common.success'), 'success'); setTimeout(()=>location.reload(), 1000); } else showToast(r.message, 'error'); });
+}
+
+// ===== 查看证书 =====
+function viewCert(domain) {
+    document.getElementById('certViewDomain').textContent = domain;
+    document.getElementById('certInfoBox').innerHTML = '<p class="text-muted">{{ t("common.loading") }}</p>';
+    document.getElementById('certContent').value = '';
+    document.getElementById('keyContent').value = '';
+    document.getElementById('certPathInput').value = '';
+    document.getElementById('keyPathInput').value = '';
+    
+    // 重置 tab 到第一个
+    document.querySelectorAll('#certViewModal .tab').forEach((t,i) => t.classList.toggle('active', i===0));
+    document.querySelectorAll('#certViewModal .tab-content').forEach((c,i) => c.classList.toggle('active', i===0));
+    
+    document.getElementById('certViewModal').classList.add('active');
+    
+    // 获取证书信息
+    fetch(`/api/ssl/${encodeURIComponent(domain)}/info`)
+        .then(r => r.json())
+        .then(info => {
+            let html = '<table class="table table-sm" style="width:100%">';
+            html += `<tr><td class="text-muted">{{ t("ssl.domain") }}</td><td class="mono"><strong>${info.domain}</strong></td></tr>`;
+            html += `<tr><td class="text-muted">{{ t("ssl.key_type") }}</td><td>${info.is_ecc ? 'ECC' : 'RSA'}</td></tr>`;
+            html += `<tr><td class="text-muted">{{ t("ssl.issued_date") }}</td><td>${info.issued_date || '-'}</td></tr>`;
+            html += `<tr><td class="text-muted">{{ t("ssl.expire_date") }}</td><td>${info.expire_date || '-'}</td></tr>`;
+            if (info.subject) html += `<tr><td class="text-muted">Subject</td><td class="mono" style="font-size:0.8rem">${info.subject}</td></tr>`;
+            if (info.issuer) html += `<tr><td class="text-muted">Issuer</td><td class="mono" style="font-size:0.8rem">${info.issuer}</td></tr>`;
+            html += '</table>';
+            document.getElementById('certInfoBox').innerHTML = html;
+        });
+    
+    // 获取证书+密钥内容
+    fetch(`/api/ssl/${encodeURIComponent(domain)}/content`)
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('certContent').value = data.cert_content || data.cert_error || '{{ t("ssl.no_content") }}';
+            document.getElementById('keyContent').value = data.key_content || data.key_error || '{{ t("ssl.no_content") }}';
+            document.getElementById('certPathInput').value = data.cert_path || '-';
+            document.getElementById('keyPathInput').value = data.key_path || '-';
+        });
+}
+
+function copyText(elementId) {
+    const el = document.getElementById(elementId);
+    el.select();
+    document.execCommand('copy');
+    showToast('{{ t("ssl.copied") }}', 'success');
 }
 </script>
 {% endblock %}

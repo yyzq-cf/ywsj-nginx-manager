@@ -791,6 +791,38 @@ def api_ssl_info(domain):
     return jsonify({'error': 'Not found'}), 404
 
 
+@app.route('/api/ssl/<domain>/content')
+@login_required
+def api_ssl_content(domain):
+    """获取证书和密钥的文本内容"""
+    certs = list_certs()
+    for cert in certs:
+        if cert['domain'] == domain:
+            result = {
+                'domain': domain,
+                'cert_content': None,
+                'key_content': None,
+                'cert_path': cert.get('installed_cer'),
+                'key_path': cert.get('installed_key'),
+            }
+            # 读证书
+            if cert.get('installed_cer') and os.path.exists(cert['installed_cer']):
+                try:
+                    with open(cert['installed_cer'], 'r') as f:
+                        result['cert_content'] = f.read()
+                except Exception as e:
+                    result['cert_error'] = str(e)
+            # 读密钥
+            if cert.get('installed_key') and os.path.exists(cert['installed_key']):
+                try:
+                    with open(cert['installed_key'], 'r') as f:
+                        result['key_content'] = f.read()
+                except Exception as e:
+                    result['key_error'] = str(e)
+            return jsonify(result)
+    return jsonify({'error': 'Not found'}), 404
+
+
 # ============ API: 日志 ============
 @app.route('/api/logs/access')
 @login_required
