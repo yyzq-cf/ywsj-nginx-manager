@@ -294,14 +294,29 @@ def get_nginx_status():
     }
     
     try:
-        result = subprocess.run(
-            ["pgrep", "-f", "nginx: master"],
-            capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0:
-            status['running'] = True
-            pids = result.stdout.strip().split('\n')
-            status['pid'] = pids[0] if pids else None
+        # 读 pid 文件判断是否运行
+        pid_file = "/run/nginx.pid"
+        if os.path.exists(pid_file):
+            with open(pid_file, 'r') as f:
+                pid = f.read().strip()
+            if pid:
+                # 检查进程是否存在
+                # os.kill(pid, 0) 返回值:
+                #   - 无异常 = 进程存在且有权限
+                #   - EPERM = 进程存在但无权限 (容器内非root)
+                #   - ESRCH = 进程不存在
+                try:
+                    os.kill(int(pid), 0)
+                    status['running'] = True
+                    status['pid'] = pid
+                except ProcessLookupError:
+                    status['running'] = False
+                except PermissionError:
+                    # EPERM 说明进程存在,只是没权限发信号
+                    status['running'] = True
+                    status['pid'] = pid
+                except ValueError:
+                    status['running'] = False
     except Exception:
         pass
     
