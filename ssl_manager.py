@@ -362,6 +362,7 @@ def list_certs():
         
         # 读取证书过期时间
         expire_date = None
+        expire_timestamp = None
         try:
             result = subprocess.run(
                 ["openssl", "x509", "-enddate", "-noout", "-in", str(fullchain)],
@@ -371,7 +372,12 @@ def list_certs():
                 # notAfter=Nov  5 12:34:56 2026 GMT
                 match = re.search(r'notAfter=(.+)', result.stdout)
                 if match:
-                    expire_date = match.group(1).strip()
+                    raw_date = match.group(1).strip()
+                    expire_timestamp = _parse_openssl_date(raw_date)
+                    if expire_timestamp:
+                        expire_date = datetime.fromtimestamp(expire_timestamp).strftime('%Y-%m-%d %H:%M')
+                    else:
+                        expire_date = raw_date
         except Exception:
             pass
         
@@ -391,7 +397,7 @@ def list_certs():
             'installed_key': installed_key if os.path.exists(installed_key) else None,
             'issued_date': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M'),
             'expire_date': expire_date,
-            'expire_timestamp': _parse_openssl_date(expire_date) if expire_date else None,
+            'expire_timestamp': expire_timestamp,
         })
     
     return certs
@@ -432,13 +438,17 @@ def get_cert_info(cert_path):
             match = re.search(r'Issuer:\s*(.+)', text)
             if match:
                 info['issuer'] = match.group(1).strip()
-            # 有效期
+            # 有效期 (解析成 YYYY-MM-DD HH:MM)
             match = re.search(r'Not Before:\s*(.+)', text)
             if match:
-                info['not_before'] = match.group(1).strip()
+                raw = match.group(1).strip()
+                ts = _parse_openssl_date(raw)
+                info['not_before'] = datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M') if ts else raw
             match = re.search(r'Not After\s*:\s*(.+)', text)
             if match:
-                info['not_after'] = match.group(1).strip()
+                raw = match.group(1).strip()
+                ts = _parse_openssl_date(raw)
+                info['not_after'] = datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M') if ts else raw
             # SAN
             sans = re.findall(r'DNS:([^\s,]+)', text)
             if sans:
