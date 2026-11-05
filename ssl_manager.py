@@ -114,6 +114,20 @@ def issue_cert(
             )
         except Exception:
             pass
+
+    # 清除 acme.sh 缓存的旧 DNS 凭证（防止上次填错的值残留）
+    account_conf = os.path.join(ACME_HOME, "account.conf")
+    if os.path.exists(account_conf):
+        try:
+            import re as _re
+            with open(account_conf, 'r') as f:
+                lines = f.readlines()
+            with open(account_conf, 'w') as f:
+                for line in lines:
+                    if not _re.match(r'^SAVED_(CF_|DP_|Ali_)', line):
+                        f.write(line)
+        except Exception:
+            pass
     
     # 确保安装目录存在
     Path(SSL_INSTALL_DIR).mkdir(parents=True, exist_ok=True)
