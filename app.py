@@ -497,6 +497,75 @@ def api_hosts_create():
     return jsonify({'success': True, 'message': 'Proxy host created'})
 
 
+@app.route('/api/hosts/<domain>', methods=['GET'])
+@login_required
+def api_hosts_get(domain):
+    db = get_db()
+    row = db.execute('SELECT * FROM proxy_hosts WHERE domain = ?', (domain,)).fetchone()
+    if not row:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    return jsonify(dict(row))
+
+
+@app.route('/api/hosts/<domain>', methods=['PUT'])
+@login_required
+def api_hosts_update(domain):
+    data = request.get_json()
+    forward_host = data.get('forward_host', '').strip()
+    forward_port = int(data.get('forward_port', 80))
+    forward_scheme = data.get('forward_scheme', 'http')
+    ssl_cert_path = data.get('ssl_cert_path')
+    ssl_key_path = data.get('ssl_key_path')
+    websocket = bool(data.get('websocket', False))
+    block_exploits = bool(data.get('block_exploits', True))
+    force_ssl = bool(data.get('force_ssl', False))
+    custom_config = data.get('custom_config', '')
+    
+    if not forward_host:
+        return jsonify({'success': False, 'error': 'forward_host required'}), 400
+    
+    # 重新生成 nginx 配置
+    conf = generate_proxy_conf(
+        domain=domain,
+        forward_host=forward_host,
+        forward_port=forward_port,
+        forward_scheme=forward_scheme,
+        ssl_cert_path=ssl_cert_path,
+        ssl_key_path=ssl_key_path,
+        websocket=websocket,
+        block_common_exploits=block_exploits,
+        force_ssl=force_ssl,
+        custom_config=custom_config,
+    )
+    
+    # 保存配置文件（覆盖）
+    filepath = save_conf(domain, conf, "proxy")
+    
+    # 校验配置
+    ok, output = nginx_test()
+    if not ok:
+        return jsonify({'success': False, 'error': f'Nginx config test failed: {output}'}), 400
+    
+    # 重载
+    ok, msg = nginx_reload()
+    if not ok:
+        return jsonify({'success': False, 'error': msg}), 500
+    
+    # 更新数据库
+    db = get_db()
+    db.execute(
+        '''UPDATE proxy_hosts SET 
+        forward_host=?, forward_port=?, forward_scheme=?, ssl_cert_path=?, ssl_key_path=?,
+        websocket=?, block_exploits=?, force_ssl=?, custom_config=?, updated_at=datetime('now','localtime')
+        WHERE domain=?''',
+        (forward_host, forward_port, forward_scheme, ssl_cert_path, ssl_key_path,
+         int(websocket), int(block_exploits), int(force_ssl), custom_config, domain)
+    )
+    db.commit()
+    
+    return jsonify({'success': True, 'message': 'Proxy host updated'})
+
+
 @app.route('/api/hosts/<domain>', methods=['DELETE'])
 @login_required
 def api_hosts_delete(domain):

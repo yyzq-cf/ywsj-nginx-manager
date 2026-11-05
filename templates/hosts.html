@@ -36,7 +36,10 @@
                     </td>
                     <td class="text-muted">{{ p.modified }}</td>
                     <td>
-                        <button class="btn btn-sm btn-danger" onclick="deleteHost('{{ p.server_names[0] if p.server_names else '' }}')">
+                        <button class="btn btn-sm btn-ghost" onclick="editHost('{{ p.server_names[0] if p.server_names else '' }}')" title="{{ t('common.edit') }}">
+                            <i class="fas fa-pen"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteHost('{{ p.server_names[0] if p.server_names else '' }}')" title="{{ t('common.delete') }}">
                             <i class="fas fa-trash"></i>
                         </button>
                     </td>
@@ -58,7 +61,7 @@
 <div class="modal-overlay" id="hostModal">
     <div class="modal">
         <div class="modal-header">
-            <h3>{{ t('hosts.add') }}</h3>
+            <h3 id="hostModalTitle">{{ t('hosts.add') }}</h3>
             <button class="modal-close" onclick="closeModal('hostModal')">&times;</button>
         </div>
         <div class="modal-body">
@@ -104,7 +107,7 @@
         </div>
         <div class="modal-footer">
             <button class="btn btn-ghost" onclick="closeModal('hostModal')">{{ t('common.cancel') }}</button>
-            <button class="btn btn-primary" onclick="saveHost()">{{ t('common.save') }}</button>
+            <button class="btn btn-primary" onclick="saveHost()" id="saveHostBtn">{{ t('common.save') }}</button>
         </div>
     </div>
 </div>
@@ -112,7 +115,48 @@
 
 {% block scripts %}
 <script>
-function showAddHostModal() { document.getElementById('hostModal').classList.add('active'); }
+let editingDomain = null;
+
+function showAddHostModal() {
+    editingDomain = null;
+    document.getElementById('hostModalTitle').textContent = '{{ t("hosts.add") }}';
+    document.getElementById('hostDomain').value = '';
+    document.getElementById('hostDomain').disabled = false;
+    document.getElementById('hostForwardHost').value = '';
+    document.getElementById('hostForwardPort').value = '';
+    document.getElementById('hostScheme').value = 'http';
+    document.getElementById('hostSslCert').value = '';
+    document.getElementById('hostForceSsl').checked = false;
+    document.getElementById('hostWebsocket').checked = false;
+    document.getElementById('hostBlockExploits').checked = true;
+    document.getElementById('hostCustomConfig').value = '';
+    document.getElementById('hostModal').classList.add('active');
+}
+
+function editHost(domain) {
+    fetch(`/api/hosts/${encodeURIComponent(domain)}`)
+        .then(r => r.json())
+        .then(h => {
+            if (h.error) { showToast(h.error, 'error'); return; }
+            editingDomain = domain;
+            document.getElementById('hostModalTitle').textContent = '{{ t("hosts.edit") }}';
+            document.getElementById('hostDomain').value = h.domain;
+            document.getElementById('hostDomain').disabled = true;
+            document.getElementById('hostForwardHost').value = h.forward_host;
+            document.getElementById('hostForwardPort').value = h.forward_port;
+            document.getElementById('hostScheme').value = h.forward_scheme;
+
+            // 选中已有 cert
+            const sslSelect = document.getElementById('hostSslCert');
+            sslSelect.value = h.ssl_cert_path || '';
+
+            document.getElementById('hostForceSsl').checked = !!h.force_ssl;
+            document.getElementById('hostWebsocket').checked = !!h.websocket;
+            document.getElementById('hostBlockExploits').checked = h.block_exploits !== 0;
+            document.getElementById('hostCustomConfig').value = h.custom_config || '';
+            document.getElementById('hostModal').classList.add('active');
+        });
+}
 
 function saveHost() {
     const sslSelect = document.getElementById('hostSslCert');
@@ -129,12 +173,32 @@ function saveHost() {
         block_exploits: document.getElementById('hostBlockExploits').checked,
         custom_config: document.getElementById('hostCustomConfig').value,
     };
-    fetch('/api/hosts', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) })
+
+    if (editingDomain) {
+        // 编辑模式 → PUT
+        fetch(`/api/hosts/${encodeURIComponent(editingDomain)}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        })
         .then(r => r.json())
         .then(r => {
             if (r.success) { showToast(i18n.t('common.success'), 'success'); setTimeout(() => location.reload(), 800); }
             else { showToast(r.error, 'error'); }
         });
+    } else {
+        // 新建模式 → POST
+        fetch('/api/hosts', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        })
+        .then(r => r.json())
+        .then(r => {
+            if (r.success) { showToast(i18n.t('common.success'), 'success'); setTimeout(() => location.reload(), 800); }
+            else { showToast(r.error, 'error'); }
+        });
+    }
 }
 
 function deleteHost(domain) {
