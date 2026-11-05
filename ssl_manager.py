@@ -134,11 +134,13 @@ def issue_cert(
     
     # 环境变量传递 DNS API 凭证
     env = {**os.environ}
-    if dns_provider and dns_api_key and dns_api_secret:
+    if dns_provider and dns_api_key:
         # 根据 provider 设置对应环境变量
         if dns_provider == "dns_cf":
+            # Cloudflare: CF_Token (API Token) 必填, CF_Account_ID 可选
             env["CF_Token"] = dns_api_key
-            env["CF_Account_ID"] = dns_api_secret
+            if dns_api_secret:
+                env["CF_Account_ID"] = dns_api_secret
         elif dns_provider == "dns_dp":
             env["DP_Id"] = dns_api_key
             env["DP_Key"] = dns_api_secret

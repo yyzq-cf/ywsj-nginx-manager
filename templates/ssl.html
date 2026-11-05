@@ -87,12 +87,14 @@
             </div>
             <div id="dnsFields" style="display:none">
                 <div class="form-group">
-                    <label>{{ t('ssl.dns_api_key') }}</label>
+                    <label id="dnsApiKeyLabel">{{ t('ssl.dns_api_key') }} *</label>
                     <input type="text" id="dnsApiKey" class="form-input">
+                    <div id="dnsApiKeyHint" style="font-size:0.8rem;color:var(--muted);margin-top:4px"></div>
                 </div>
                 <div class="form-group">
-                    <label>{{ t('ssl.dns_api_secret') }}</label>
-                    <input type="password" id="dnsApiSecret" class="form-input">
+                    <label id="dnsApiSecretLabel">{{ t('ssl.dns_api_secret') }}</label>
+                    <input type="text" id="dnsApiSecret" class="form-input">
+                    <div id="dnsApiSecretHint" style="font-size:0.8rem;color:var(--muted);margin-top:4px"></div>
                 </div>
             </div>
             <div class="form-group">
@@ -125,6 +127,56 @@ function showIssueModal() { document.getElementById('sslModal').classList.add('a
 function toggleDnsFields() {
     const provider = document.getElementById('dnsProvider').value;
     document.getElementById('dnsFields').style.display = provider ? 'block' : 'none';
+    
+    const keyHint = document.getElementById('dnsApiKeyHint');
+    const secretHint = document.getElementById('dnsApiSecretHint');
+    const secretLabel = document.getElementById('dnsApiSecretLabel');
+    const keyLabel = document.getElementById('dnsApiKeyLabel');
+    
+    const hints = {
+        'dns_cf': {
+            key: '📋 API Token → Cloudflare → My Profile → API Tokens → Create Token (选 Edit zone DNS 模板)',
+            keyLink: 'https://dash.cloudflare.com/profile/api-tokens',
+            secret: '📋 Account ID → Cloudflare 仪表盘首页右侧栏 (可选)',
+            secretLink: 'https://dash.cloudflare.com',
+            secretOptional: true,
+        },
+        'dns_dp': {
+            key: '📋 ID → DNSPod → 账户中心 → API 密钥',
+            keyLink: 'https://console.dnspod.cn/account/token/token',
+            secret: '📋 Token → DNSPod → 账户中心 → API 密钥',
+            secretLink: 'https://console.dnspod.cn/account/token/token',
+            secretOptional: false,
+        },
+        'dns_ali': {
+            key: '📋 AccessKey ID → 阿里云 → AccessKey 管理',
+            keyLink: 'https://ram.console.aliyun.com/manage/ak',
+            secret: '📋 AccessKey Secret → 阿里云 → AccessKey 管理',
+            secretLink: 'https://ram.console.aliyun.com/manage/ak',
+            secretOptional: false,
+        },
+    };
+    
+    if (provider && hints[provider]) {
+        const h = hints[provider];
+        keyHint.innerHTML = h.keyLink 
+            ? `${h.key} <a href="${h.keyLink}" target="_blank" style="color:var(--accent)">{{ t('ssl.get_key') }} →</a>`
+            : h.key;
+        if (h.secretOptional) {
+            secretLabel.textContent = "{{ t('ssl.dns_api_secret') }} (可选)";
+            secretHint.innerHTML = h.secretLink
+                ? `${h.secret} <a href="${h.secretLink}" target="_blank" style="color:var(--accent)">→</a>`
+                : h.secret;
+        } else {
+            secretLabel.textContent = "{{ t('ssl.dns_api_secret') }} *";
+            secretHint.innerHTML = h.secretLink
+                ? `${h.secret} <a href="${h.secretLink}" target="_blank" style="color:var(--accent)">{{ t('ssl.get_key') }} →</a>`
+                : h.secret;
+        }
+    } else {
+        keyHint.textContent = '';
+        secretHint.textContent = '';
+    }
 }
 
 function checkWildcard() {
