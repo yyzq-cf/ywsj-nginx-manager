@@ -347,6 +347,19 @@ def list_certs():
         
         stat = fullchain.stat()
         
+        # 检查是否是泛域名证书（通过 openssl 看 SAN）
+        is_wildcard = False
+        try:
+            result = subprocess.run(
+                ["openssl", "x509", "-text", "-noout", "-in", str(fullchain)],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0 and re.search(r'DNS:\*\.', result.stdout):
+                is_wildcard = True
+                domain = "*." + domain
+        except Exception:
+            pass
+        
         # 读取证书过期时间
         expire_date = None
         try:
@@ -363,6 +376,7 @@ def list_certs():
             pass
         
         # 安装路径
+        # 安装路径 (泛域名的 * 在文件名中用 _ 替代)
         safe_domain = re.sub(r'[^a-zA-Z0-9._-]', '_', domain)
         installed_cer = os.path.join(SSL_INSTALL_DIR, f"{safe_domain}.cer")
         installed_key = os.path.join(SSL_INSTALL_DIR, f"{safe_domain}.key")
@@ -370,6 +384,7 @@ def list_certs():
         certs.append({
             'domain': domain,
             'is_ecc': is_ecc,
+            'is_wildcard': is_wildcard,
             'acme_dir': str(d),
             'fullchain': str(fullchain),
             'installed_cer': installed_cer if os.path.exists(installed_cer) else None,
