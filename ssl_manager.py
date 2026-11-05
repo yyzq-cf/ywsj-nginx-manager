@@ -140,7 +140,7 @@ def issue_cert(
     elif dns_provider:
         cmd.extend(["--dns", dns_provider])
         if test:
-            cmd.append("--dnssleep 60")
+            cmd.extend(["--dnssleep", "60"])
     else:
         # 默认 webroot (需要 nginx 运行)
         cmd.extend(["--webroot", "/var/www/html"])
@@ -166,11 +166,17 @@ def issue_cert(
             env["Ali_Secret"] = dns_api_secret
     
     try:
-        logger.info(f"Issuing cert for {domain}, mode: {'standalone' if standalone else 'dns' if dns_provider else 'webroot'}")
+        mode = 'standalone' if standalone else 'dns' if dns_provider else 'webroot'
+        logger.info(f"Issuing cert for {domain}, mode: {mode}")
+        if dns_provider:
+            logger.info(f"DNS provider: {dns_provider}, CF_Token set: {'CF_Token' in env}, CF_Account_ID set: {'CF_Account_ID' in env}")
+        logger.info(f"acme.sh cmd: {ACME_BIN} {' '.join(cmd)}")
         result = subprocess.run(
             cmd, capture_output=True, text=True, timeout=300, env=env
         )
         output = result.stdout + result.stderr
+        logger.info(f"acme.sh exit code: {result.returncode}")
+        logger.info(f"acme.sh output (last 500 chars): {output[-500:]}")
         
         if result.returncode != 0:
             return False, output, None, None
