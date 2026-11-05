@@ -122,3 +122,89 @@ document.addEventListener('keydown', (e) => {
         document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
     }
 });
+
+// ============ 2FA 管理 ============
+function check2FAStatus() {
+    fetch('/api/2fa/status')
+        .then(r => r.json())
+        .then(data => {
+            const statusBox = document.getElementById('2fa-status-box');
+            const setupBox = document.getElementById('2fa-setup-box');
+            const disableBox = document.getElementById('2fa-disable-box');
+            if (data.enabled) {
+                statusBox.style.display = 'none';
+                setupBox.style.display = 'none';
+                disableBox.style.display = 'block';
+            } else {
+                statusBox.style.display = 'none';
+                setupBox.style.display = 'block';
+                disableBox.style.display = 'none';
+                setup2FA();
+            }
+        });
+}
+
+function setup2FA() {
+    fetch('/api/2fa/setup', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('2fa-qr-container').innerHTML =
+                    `<img src="${data.qr_code}" alt="QR" style="width:200px;height:200px;border-radius:8px">`;
+                document.getElementById('2fa-secret').textContent = data.secret;
+            }
+        });
+}
+
+function confirm2FA() {
+    const code = document.getElementById('2faCode').value.trim();
+    const msgEl = document.getElementById('2faMsg');
+    if (!code || code.length !== 6) {
+        msgEl.innerHTML = '<span style="color:var(--error)">6 digits required</span>';
+        return;
+    }
+    fetch('/api/2fa/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: code }),
+    })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                msgEl.innerHTML = '<span style="color:var(--success)">✅ 2FA enabled</span>';
+                setTimeout(() => { location.reload(); }, 1500);
+            } else {
+                msgEl.innerHTML = `<span style="color:var(--error)">${data.error}</span>`;
+            }
+        });
+}
+
+function disable2FA() {
+    const password = document.getElementById('2faDisablePassword').value;
+    const msgEl = document.getElementById('2faDisableMsg');
+    if (!password) {
+        msgEl.innerHTML = '<span style="color:var(--error)">Password required</span>';
+        return;
+    }
+    fetch('/api/2fa/disable', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: password }),
+    })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                msgEl.innerHTML = '<span style="color:var(--success)">2FA disabled</span>';
+                setTimeout(() => { location.reload(); }, 1500);
+            } else {
+                msgEl.innerHTML = `<span style="color:var(--error)">${data.error}</span>`;
+            }
+        });
+}
+
+// 打开设置面板时加载 2FA 状态
+const origShowSettings = showSettings;
+showSettings = function() {
+    origShowSettings();
+    check2FAStatus();
+};

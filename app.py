@@ -5,6 +5,10 @@ Flask 主应用
 import os
 import sqlite3
 import logging
+import threading
+import time
+import io
+import base64
 from datetime import datetime, timedelta
 from functools import wraps
 from pathlib import Path
@@ -14,6 +18,8 @@ from flask import (
     session, jsonify, make_response, g, flash
 )
 from werkzeug.security import generate_password_hash, check_password_hash
+import pyotp
+import qrcode
 
 from i18n import init_i18n, get_locale, set_language, SUPPORTED_LANGUAGES
 from nginx_manager import (
@@ -46,6 +52,12 @@ logger = logging.getLogger('ywsj-nginx-manager')
 
 # i18n
 init_i18n(app)
+
+# ============ 2FA 全局状态 ============
+_2fa_pending = {}   # {pending_token: {user_id, expire, attempts}}
+_2fa_lock = threading.Lock()
+_2FA_EXPIRE = 180   # 3分钟
+_2FA_MAX_ATTEMPTS = 5
 
 # ============ 数据库 ============
 def get_db():
@@ -105,6 +117,10 @@ def init_db():
             last_attempt TEXT
         );
     ''')
+    # 2FA: 添加 totp_secret 列（已有表自动迁移）
+    cols = [r[1] for r in db.execute("PRAGMA table_info(users)").fetchall()]
+    if 'totp_secret' not in cols:
+        db.execute("ALTER TABLE users ADD COLUMN totp_secret TEXT")
     db.commit()
 
 
@@ -213,24 +229,79 @@ def login():
         return redirect(url_for('index'))
     
     if request.method == 'POST':
-        password = request.form.get('password', '')
+        pending_token = request.form.get('pending_token', '')
         ip = request.remote_addr
-        
-        if is_locked(ip):
-            return render_template('login.html', error_key='login.locked')
-        
-        db = get_db()
-        user = db.execute('SELECT * FROM users LIMIT 1').fetchone()
-        if user and check_password_hash(user['password_hash'], password):
-            session.permanent = True
-            session['user_id'] = user['id']
-            clear_attempts(ip)
-            return redirect(url_for('index'))
+
+        if pending_token:
+            # === Phase 2: TOTP 验证 ===
+            code = request.form.get('code', '').strip()
+
+            with _2fa_lock:
+                pending = _2fa_pending.get(pending_token)
+                if not pending:
+                    return render_template('login.html', error_key='login.error', twofa_stage=False)
+                if time.time() > pending['expire']:
+                    _2fa_pending.pop(pending_token, None)
+                    return render_template('login.html', error_key='login.expired', twofa_stage=False)
+                if pending['attempts'] >= _2FA_MAX_ATTEMPTS:
+                    _2fa_pending.pop(pending_token, None)
+                    return render_template('login.html', error_key='login.locked', twofa_stage=False)
+
+            db = get_db()
+            user = db.execute('SELECT * FROM users WHERE id = ?', (pending['user_id'],)).fetchone()
+
+            if user and user['totp_secret']:
+                totp = pyotp.TOTP(user['totp_secret'])
+                if totp.verify(code, valid_window=1):
+                    # 验证成功
+                    with _2fa_lock:
+                        _2fa_pending.pop(pending_token, None)
+                    session.clear()
+                    session.permanent = True
+                    session['user_id'] = user['id']
+                    clear_attempts(ip)
+                    return redirect(url_for('index'))
+                else:
+                    # 验证失败
+                    with _2fa_lock:
+                        pending['attempts'] += 1
+                    return render_template('login.html', error_key='login.totp_error',
+                                           pending_token=pending_token, twofa_stage=True)
+            else:
+                return render_template('login.html', error_key='login.error', twofa_stage=False)
+
         else:
-            record_failed_attempt(ip)
-            return render_template('login.html', error_key='login.error')
-    
-    return render_template('login.html')
+            # === Phase 1: 密码验证 ===
+            password = request.form.get('password', '')
+
+            if is_locked(ip):
+                return render_template('login.html', error_key='login.locked')
+
+            db = get_db()
+            user = db.execute('SELECT * FROM users LIMIT 1').fetchone()
+            if user and check_password_hash(user['password_hash'], password):
+                clear_attempts(ip)
+                # 检查是否启用 2FA
+                if user['totp_secret']:
+                    # 生成 pending_token，进入 2FA 阶段
+                    token = os.urandom(16).hex()
+                    with _2fa_lock:
+                        _2fa_pending[token] = {
+                            'user_id': user['id'],
+                            'expire': time.time() + _2FA_EXPIRE,
+                            'attempts': 0,
+                        }
+                    return render_template('login.html', pending_token=token, twofa_stage=True)
+                else:
+                    # 未启用 2FA，直接登录
+                    session.permanent = True
+                    session['user_id'] = user['id']
+                    return redirect(url_for('index'))
+            else:
+                record_failed_attempt(ip)
+                return render_template('login.html', error_key='login.error')
+
+    return render_template('login.html', twofa_stage=False)
 
 
 @app.route('/logout')
@@ -680,6 +751,88 @@ def api_change_password():
     db.commit()
     
     return jsonify({'success': True, 'message': 'Password changed'})
+
+
+# ============ API: 2FA 管理 ============
+@app.route('/api/2fa/status')
+@login_required
+def api_2fa_status():
+    db = get_db()
+    user = db.execute('SELECT totp_secret FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+    return jsonify({'enabled': bool(user and user['totp_secret'])})
+
+
+@app.route('/api/2fa/setup', methods=['POST'])
+@login_required
+def api_2fa_setup():
+    """生成 TOTP secret + QR 码"""
+    secret = pyotp.random_base32()
+    db = get_db()
+    user = db.execute('SELECT * FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+    if not user:
+        return jsonify({'success': False, 'error': 'User not found'}), 404
+
+    # 生成 otpauth URI
+    totp = pyotp.TOTP(secret)
+    issuer = 'ywsj-nginx-manager'
+    uri = totp.provisioning_uri(name='admin', issuer_name=issuer)
+
+    # 生成 QR 码 (data URI)
+    qr = qrcode.QRCode(version=1, box_size=10, border=4)
+    qr.add_data(uri)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color='black', back_color='white')
+    buf = io.BytesIO()
+    img.save(buf, format='PNG')
+    qr_data_uri = 'data:image/png;base64,' + base64.b64encode(buf.getvalue()).decode()
+
+    # 临时存储 secret 到 session（不保存到 DB，等确认后再存）
+    session['_2fa_pending_secret'] = secret
+
+    return jsonify({
+        'success': True,
+        'secret': secret,
+        'qr_code': qr_data_uri,
+        'uri': uri,
+    })
+
+
+@app.route('/api/2fa/confirm', methods=['POST'])
+@login_required
+def api_2fa_confirm():
+    """验证 TOTP 码并保存 secret"""
+    data = request.get_json()
+    code = data.get('code', '').strip()
+    secret = session.get('_2fa_pending_secret')
+
+    if not secret:
+        return jsonify({'success': False, 'error': 'No pending 2FA setup. Call /api/2fa/setup first.'}), 400
+
+    totp = pyotp.TOTP(secret)
+    if totp.verify(code, valid_window=1):
+        db = get_db()
+        db.execute('UPDATE users SET totp_secret = ? WHERE id = ?', (secret, session['user_id']))
+        db.commit()
+        session.pop('_2fa_pending_secret', None)
+        return jsonify({'success': True, 'message': '2FA enabled'})
+    return jsonify({'success': False, 'error': 'Invalid code'}), 400
+
+
+@app.route('/api/2fa/disable', methods=['POST'])
+@login_required
+def api_2fa_disable():
+    """关闭 2FA（需要验证密码）"""
+    data = request.get_json()
+    password = data.get('password', '')
+
+    db = get_db()
+    user = db.execute('SELECT * FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+    if not user or not check_password_hash(user['password_hash'], password):
+        return jsonify({'success': False, 'error': 'Invalid password'}), 403
+
+    db.execute('UPDATE users SET totp_secret = NULL WHERE id = ?', (session['user_id'],))
+    db.commit()
+    return jsonify({'success': True, 'message': '2FA disabled'})
 
 
 # ============ Health ============
