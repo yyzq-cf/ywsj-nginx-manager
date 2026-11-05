@@ -663,9 +663,15 @@ def api_ssl_issue():
     standalone = bool(data.get('standalone', False))
     key_length = data.get('key_length', 'ec-256')
     test = bool(data.get('test', False))
+    email = data.get('email', '').strip()
     
     if not domain:
         return jsonify({'success': False, 'error': 'Domain required'}), 400
+    
+    # 泛域名必须用 DNS API
+    is_wildcard = domain.startswith('*.')
+    if is_wildcard and not dns_provider:
+        return jsonify({'success': False, 'error': 'Wildcard domains require DNS API verification'}), 400
     
     ok, msg, cert_path, key_path = issue_cert(
         domain=domain,
@@ -675,6 +681,7 @@ def api_ssl_issue():
         standalone=standalone,
         key_length=key_length,
         test=test,
+        email=email,
     )
     
     if ok:

@@ -67,6 +67,7 @@ def issue_cert(
     standalone=False,
     key_length="ec-256",
     test=False,
+    email=None,
 ):
     """申请 SSL 证书
     
@@ -78,6 +79,7 @@ def issue_cert(
         standalone: 是否用 standalone 模式 (需要 80 端口)
         key_length: 密钥长度 ec-256 / ec-384 / 2048
         test: 是否使用测试环境 (不消耗正式额度)
+        email: 注册邮箱 (Let's Encrypt 过期通知用)
     
     Returns:
         tuple: (success: bool, message: str, cert_path: str, key_path: str)
@@ -85,6 +87,16 @@ def issue_cert(
     ok, msg = ensure_acme()
     if not ok:
         return False, msg, None, None
+    
+    # 注册账户邮箱 (acme.sh 需要)
+    if email:
+        try:
+            subprocess.run(
+                [ACME_BIN, "--register-account", "-m", email],
+                capture_output=True, text=True, timeout=30, env=os.environ
+            )
+        except Exception:
+            pass
     
     # 确保安装目录存在
     Path(SSL_INSTALL_DIR).mkdir(parents=True, exist_ok=True)

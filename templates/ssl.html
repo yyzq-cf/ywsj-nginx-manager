@@ -66,7 +66,15 @@
         <div class="modal-body">
             <div class="form-group">
                 <label>{{ t('ssl.domain') }} *</label>
-                <input type="text" id="sslDomain" class="form-input" placeholder="{{ t('ssl.domain_placeholder') }}">
+                <input type="text" id="sslDomain" class="form-input" placeholder="{{ t('ssl.domain_placeholder') }}" oninput="checkWildcard()">
+                <div id="wildcardHint" style="display:none;margin-top:6px;font-size:0.8rem;color:var(--warning)">
+                    <i class="fas fa-info-circle"></i> {{ t('ssl.wildcard_hint') }}
+                </div>
+            </div>
+            <div class="form-group">
+                <label>{{ t('ssl.email') }}</label>
+                <input type="email" id="sslEmail" class="form-input" placeholder="admin@example.com">
+                <div style="font-size:0.8rem;color:var(--muted);margin-top:4px">{{ t('ssl.email_hint') }}</div>
             </div>
             <div class="form-group">
                 <label>{{ t('ssl.dns_provider') }}</label>
@@ -119,12 +127,25 @@ function toggleDnsFields() {
     document.getElementById('dnsFields').style.display = provider ? 'block' : 'none';
 }
 
+function checkWildcard() {
+    const domain = document.getElementById('sslDomain').value.trim();
+    const hint = document.getElementById('wildcardHint');
+    if (domain.startsWith('*.')) {
+        hint.style.display = 'block';
+        // 自动选中 DNS API 并禁用 standalone
+        document.getElementById('standaloneMode').checked = false;
+    } else {
+        hint.style.display = 'none';
+    }
+}
+
 function issueCertificate() {
     const btn = document.getElementById('issueBtn');
     btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> {{ t("ssl.issuing") }}';
     
     const data = {
         domain: document.getElementById('sslDomain').value.trim(),
+        email: document.getElementById('sslEmail').value.trim(),
         dns_provider: document.getElementById('dnsProvider').value || null,
         dns_api_key: document.getElementById('dnsApiKey').value || null,
         dns_api_secret: document.getElementById('dnsApiSecret').value || null,
