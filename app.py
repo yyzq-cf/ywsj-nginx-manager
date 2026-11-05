@@ -794,7 +794,7 @@ def api_ssl_info(domain):
 @app.route('/api/ssl/<domain>/content')
 @login_required
 def api_ssl_content(domain):
-    """获取证书和密钥的文本内容"""
+    """获取证书和密钥的文本内容 + DNS 凭证"""
     certs = list_certs()
     for cert in certs:
         if cert['domain'] == domain:
@@ -804,6 +804,8 @@ def api_ssl_content(domain):
                 'key_content': None,
                 'cert_path': cert.get('installed_cer'),
                 'key_path': cert.get('installed_key'),
+                'dns_provider': None,
+                'dns_api_key_masked': None,
             }
             # 读证书
             if cert.get('installed_cer') and os.path.exists(cert['installed_cer']):
@@ -819,8 +821,47 @@ def api_ssl_content(domain):
                         result['key_content'] = f.read()
                 except Exception as e:
                     result['key_error'] = str(e)
+            # 从 acme.sh account.conf 读取已保存的 DNS 凭证
+            account_conf = os.path.join('/home/appuser/.acme.sh', 'account.conf')
+            if os.path.exists(account_conf):
+                try:
+                    with open(account_conf, 'r') as f:
+                        for line in f:
+                            line = line.strip()
+                            # SAVED_CF_Token='xxx'
+                            if line.startswith("SAVED_CF_Token="):
+                                token = line.split("=", 1)[1].strip("'\"")
+                                result['dns_provider'] = 'dns_cf'
+                                result['dns_api_key_masked'] = _mask_secret(token)
+                            elif line.startswith("SAVED_CF_Account_ID="):
+                                acid = line.split("=", 1)[1].strip("'\"")
+                                if acid:
+                                    result['dns_api_secret_masked'] = _mask_secret(acid)
+                            elif line.startswith("SAVED_DP_Id="):
+                                token = line.split("=", 1)[1].strip("'\"")
+                                result['dns_provider'] = 'dns_dp'
+                                result['dns_api_key_masked'] = _mask_secret(token)
+                            elif line.startswith("SAVED_DP_Key="):
+                                token = line.split("=", 1)[1].strip("'\"")
+                                result['dns_api_secret_masked'] = _mask_secret(token)
+                            elif line.startswith("SAVED_Ali_Key="):
+                                token = line.split("=", 1)[1].strip("'\"")
+                                result['dns_provider'] = 'dns_ali'
+                                result['dns_api_key_masked'] = _mask_secret(token)
+                            elif line.startswith("SAVED_Ali_Secret="):
+                                token = line.split("=", 1)[1].strip("'\"")
+                                result['dns_api_secret_masked'] = _mask_secret(token)
+                except Exception:
+                    pass
             return jsonify(result)
     return jsonify({'error': 'Not found'}), 404
+
+
+def _mask_secret(secret):
+    """脱敏: 前8位****后4位"""
+    if not secret or len(secret) <= 12:
+        return '****'
+    return secret[:8] + '****' + secret[-4:]
 
 
 # ============ API: 日志 ============

@@ -146,6 +146,21 @@
                         <input type="text" class="form-input" id="keyPathInput" readonly>
                     </div>
                 </div>
+                <div id="dnsCredBox" style="margin-top:16px;display:none">
+                    <div class="form-group">
+                        <label>{{ t('ssl.dns_provider') }}</label>
+                        <input type="text" class="form-input" id="dnsProviderInput" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>{{ t('ssl.dns_api_key') }} ({{ t('ssl.masked') }})</label>
+                        <input type="text" class="form-input" id="dnsKeyMaskedInput" readonly>
+                    </div>
+                    <div class="form-group" id="dnsSecretGroup" style="display:none">
+                        <label>{{ t('ssl.dns_api_secret') }} ({{ t('ssl.masked') }})</label>
+                        <input type="text" class="form-input" id="dnsSecretMaskedInput" readonly>
+                    </div>
+                    <p class="text-muted" style="font-size:0.8rem">{{ t('ssl.dns_credential_hint') }}</p>
+                </div>
             </div>
             <div class="tab-content" id="tab-cert-content">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
@@ -302,7 +317,7 @@ function viewCert(domain) {
             document.getElementById('certInfoBox').innerHTML = html;
         });
     
-    // 获取证书+密钥内容
+    // 获取证书+密钥内容 + DNS 凭证
     fetch(`/api/ssl/${encodeURIComponent(domain)}/content`)
         .then(r => r.json())
         .then(data => {
@@ -310,6 +325,26 @@ function viewCert(domain) {
             document.getElementById('keyContent').value = data.key_content || data.key_error || '{{ t("ssl.no_content") }}';
             document.getElementById('certPathInput').value = data.cert_path || '-';
             document.getElementById('keyPathInput').value = data.key_path || '-';
+
+            // DNS 凭证
+            if (data.dns_provider) {
+                const providerNames = {
+                    'dns_cf': 'Cloudflare',
+                    'dns_dp': 'DNSPod',
+                    'dns_ali': 'Aliyun DNS',
+                };
+                document.getElementById('dnsProviderInput').value = providerNames[data.dns_provider] || data.dns_provider;
+                document.getElementById('dnsKeyMaskedInput').value = data.dns_api_key_masked || '-';
+                if (data.dns_api_secret_masked) {
+                    document.getElementById('dnsSecretGroup').style.display = 'block';
+                    document.getElementById('dnsSecretMaskedInput').value = data.dns_api_secret_masked;
+                } else {
+                    document.getElementById('dnsSecretGroup').style.display = 'none';
+                }
+                document.getElementById('dnsCredBox').style.display = 'block';
+            } else {
+                document.getElementById('dnsCredBox').style.display = 'none';
+            }
         });
 }
 
