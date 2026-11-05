@@ -11,7 +11,7 @@ services:
       - nginx-conf:/etc/nginx/conf.d
       - nginx-ssl:/etc/nginx/ssl
       - nginx-logs:/var/log/nginx
-      - acme-data:/root/.acme.sh
+      - acme-data:/home/appuser/.acme.sh
     environment:
       - SECRET_KEY=change-me-to-random-string
     restart: always

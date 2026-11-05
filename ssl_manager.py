@@ -11,8 +11,8 @@ import re
 
 logger = logging.getLogger(__name__)
 
-ACME_BIN = "/root/.acme.sh/acme.sh"
-ACME_HOME = "/root/.acme.sh"
+ACME_BIN = "/home/appuser/.acme.sh/acme.sh"
+ACME_HOME = "/home/appuser/.acme.sh"
 SSL_INSTALL_DIR = "/etc/nginx/ssl"
 
 # acme.sh 默认 CA (Let's Encrypt)
@@ -24,18 +24,35 @@ def ensure_acme():
     if not os.path.exists(ACME_BIN):
         logger.info("Installing acme.sh...")
         try:
+            # 下载并安装到 ACME_HOME
             result = subprocess.run(
-                ["curl", "-fsSL", "https://get.acme.sh", "-o", "/tmp/acme_install.sh"],
+                ["curl", "-fsSL", "https://github.com/acmesh-official/acme.sh/archive/master.tar.gz", "-o", "/tmp/acme.tar.gz"],
                 capture_output=True, text=True, timeout=30
             )
             if result.returncode != 0:
                 return False, f"Failed to download acme.sh: {result.stderr}"
             
             result = subprocess.run(
-                ["sh", "/tmp/acme_install.sh"],
-                capture_output=True, text=True, timeout=60,
-                env={**os.environ, "ACME_HOME": ACME_HOME}
+                ["tar", "-xzf", "/tmp/acme.tar.gz", "-C", "/tmp/"],
+                capture_output=True, text=True, timeout=30
             )
+            
+            # 找到解压目录
+            import glob
+            acme_dirs = glob.glob("/tmp/acme.sh-*")
+            if not acme_dirs:
+                return False, "Failed to extract acme.sh"
+            
+            result = subprocess.run(
+                ["sh", "acme.sh", "--install", "--home", ACME_HOME, "--nocron"],
+                capture_output=True, text=True, timeout=60,
+                cwd=acme_dirs[0],
+                env={**os.environ}
+            )
+            
+            # 清理
+            subprocess.run(["rm", "-rf", "/tmp/acme.tar.gz"] + acme_dirs, capture_output=True)
+            
             if result.returncode != 0:
                 return False, f"Failed to install acme.sh: {result.stderr}"
             

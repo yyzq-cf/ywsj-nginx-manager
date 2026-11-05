@@ -42,12 +42,13 @@ RUN chown -R appuser:appgroup /app /data /var/www/html
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# 安装 acme.sh
+# 安装 acme.sh (装到 appuser home 目录)
 RUN curl -fsSL https://github.com/acmesh-official/acme.sh/archive/master.tar.gz -o /tmp/acme.tar.gz \
     && tar -xzf /tmp/acme.tar.gz -C /tmp/ \
-    && cd /tmp/acme.sh-* && sh acme.sh --install --home /root/.acme.sh --nocron \
+    && cd /tmp/acme.sh-* && sh acme.sh --install --home /home/appuser/.acme.sh --nocron \
     && rm -rf /tmp/acme.tar.gz /tmp/acme.sh-* \
-    && /root/.acme.sh/acme.sh --set-default-ca --server letsencrypt
+    && chown -R appuser:appgroup /home/appuser/.acme.sh \
+    && /home/appuser/.acme.sh/acme.sh --set-default-ca --server letsencrypt
 
 WORKDIR /app
 
