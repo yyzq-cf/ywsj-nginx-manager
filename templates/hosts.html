@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+{% block page_title %}{{ t('hosts.title') }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>{{ t('hosts.title') }}</h2>
+    <button class="btn btn-primary" onclick="showAddHostModal()">
+        <i class="fas fa-plus"></i> {{ t('hosts.add') }}
+    </button>
+</div>
+
+<div class="card">
+    <div class="table-container">
+        {% if proxies %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>{{ t('common.domain') }}</th>
+                    <th>Forward</th>
+                    <th>SSL</th>
+                    <th>{{ t('common.modified') }}</th>
+                    <th>{{ t('common.action') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in proxies %}
+                <tr>
+                    <td class="mono"><strong>{{ p.server_names[0] if p.server_names else '-' }}</strong></td>
+                    <td class="mono">{{ p.proxy_passes[0] if p.proxy_passes else '-' }}</td>
+                    <td>
+                        {% if p.has_ssl %}
+                        <span class="badge badge-success"><i class="fas fa-lock"></i> SSL</span>
+                        {% else %}
+                        <span class="badge badge-muted">HTTP</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-muted">{{ p.modified }}</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger" onclick="deleteHost('{{ p.server_names[0] if p.server_names else '' }}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-share-nodes" style="font-size:3rem;opacity:0.3"></i>
+            <p>{{ t('common.no_data') }}</p>
+            <button class="btn btn-primary" onclick="showAddHostModal()">{{ t('hosts.add') }}</button>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Add/Edit Host Modal -->
+<div class="modal-overlay" id="hostModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>{{ t('hosts.add') }}</h3>
+            <button class="modal-close" onclick="closeModal('hostModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>{{ t('hosts.domain') }} *</label>
+                <input type="text" id="hostDomain" class="form-input" placeholder="{{ t('hosts.domain_placeholder') }}">
+            </div>
+            <div class="form-row">
+                <div class="form-group" style="flex:1">
+                    <label>{{ t('hosts.forward_host') }} *</label>
+                    <input type="text" id="hostForwardHost" class="form-input" placeholder="{{ t('hosts.forward_host_placeholder') }}">
+                </div>
+                <div class="form-group" style="width:120px">
+                    <label>{{ t('hosts.forward_port') }} *</label>
+                    <input type="number" id="hostForwardPort" class="form-input" placeholder="{{ t('hosts.forward_port_placeholder') }}">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>{{ t('hosts.forward_scheme') }}</label>
+                <select id="hostScheme" class="form-select">
+                    <option value="http">http</option>
+                    <option value="https">https</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>{{ t('hosts.ssl_cert') }}</label>
+                <select id="hostSslCert" class="form-select">
+                    <option value="">{{ t('hosts.ssl_cert_none') }}</option>
+                    {% for cert in certs %}
+                    <option value="{{ cert.installed_cer or '' }}" data-key="{{ cert.installed_key or '' }}">{{ cert.domain }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="checkbox-group">
+                <label class="checkbox"><input type="checkbox" id="hostForceSsl"> {{ t('hosts.force_ssl') }}</label>
+                <label class="checkbox"><input type="checkbox" id="hostWebsocket"> {{ t('hosts.websocket') }}</label>
+                <label class="checkbox"><input type="checkbox" id="hostBlockExploits" checked> {{ t('hosts.block_exploits') }}</label>
+            </div>
+            <div class="form-group">
+                <label>{{ t('hosts.custom_config') }}</label>
+                <textarea id="hostCustomConfig" class="form-textarea" rows="4" placeholder="{{ t('hosts.custom_config_hint') }}"></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeModal('hostModal')">{{ t('common.cancel') }}</button>
+            <button class="btn btn-primary" onclick="saveHost()">{{ t('common.save') }}</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showAddHostModal() { document.getElementById('hostModal').classList.add('active'); }
+
+function saveHost() {
+    const sslSelect = document.getElementById('hostSslCert');
+    const sslOption = sslSelect.options[sslSelect.selectedIndex];
+    const data = {
+        domain: document.getElementById('hostDomain').value.trim(),
+        forward_host: document.getElementById('hostForwardHost').value.trim(),
+        forward_port: parseInt(document.getElementById('hostForwardPort').value),
+        forward_scheme: document.getElementById('hostScheme').value,
+        ssl_cert_path: sslSelect.value || null,
+        ssl_key_path: sslOption.dataset.key || null,
+        force_ssl: document.getElementById('hostForceSsl').checked,
+        websocket: document.getElementById('hostWebsocket').checked,
+        block_exploits: document.getElementById('hostBlockExploits').checked,
+        custom_config: document.getElementById('hostCustomConfig').value,
+    };
+    fetch('/api/hosts', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) })
+        .then(r => r.json())
+        .then(r => {
+            if (r.success) { showToast(i18n.t('common.success'), 'success'); setTimeout(() => location.reload(), 800); }
+            else { showToast(r.error, 'error'); }
+        });
+}
+
+function deleteHost(domain) {
+    if (!confirm(i18n.t('common.confirm_delete'))) return;
+    fetch(`/api/hosts/${encodeURIComponent(domain)}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(r => { if (r.success) { showToast(i18n.t('common.success'), 'success'); setTimeout(() => location.reload(), 800); } });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% block page_title %}{{ t('streams.title') }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>{{ t('streams.title') }}</h2>
+    <button class="btn btn-primary" onclick="showAddStreamModal()">
+        <i class="fas fa-plus"></i> {{ t('streams.add') }}
+    </button>
+</div>
+
+<div class="card">
+    <div class="table-container">
+        {% if streams %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>{{ t('streams.listen_port') }}</th>
+                    <th>{{ t('streams.target_host') }}</th>
+                    <th>{{ t('streams.target_port') }}</th>
+                    <th>{{ t('streams.protocol') }}</th>
+                    <th>{{ t('common.action') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in streams %}
+                <tr>
+                    <td class="mono"><strong>{{ s.content.split('listen ')[1].split()[0] if 'listen ' in s.content else '-' }}</strong></td>
+                    <td class="mono">{{ s.content.split('proxy_pass ')[1].split(':')[0] if 'proxy_pass ' in s.content else '-' }}</td>
+                    <td class="mono">{{ s.content.split(':')[-1].split(';')[0] if 'proxy_pass' in s.content else '-' }}</td>
+                    <td>{% if 'udp' in s.content %}<span class="badge badge-info">UDP</span>{% else %}<span class="badge badge-success">TCP</span>{% endif %}</td>
+                    <td>
+                        {% set port_match = s.content.split('listen ')[1].split()[0] if 'listen ' in s.content else '' %}
+                        <button class="btn btn-sm btn-danger" onclick="deleteStream('{{ port_match }}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-network-wired" style="font-size:3rem;opacity:0.3"></i>
+            <p>{{ t('common.no_data') }}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="modal-overlay" id="streamModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>{{ t('streams.add') }}</h3>
+            <button class="modal-close" onclick="closeModal('streamModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-row">
+                <div class="form-group" style="width:120px">
+                    <label>{{ t('streams.listen_port') }} *</label>
+                    <input type="number" id="streamListenPort" class="form-input" placeholder="3306">
+                </div>
+                <div class="form-group" style="width:120px">
+                    <label>{{ t('streams.protocol') }}</label>
+                    <select id="streamProtocol" class="form-select">
+                        <option value="tcp">{{ t('streams.tcp') }}</option>
+                        <option value="udp">{{ t('streams.udp') }}</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group" style="flex:1">
+                    <label>{{ t('streams.target_host') }} *</label>
+                    <input type="text" id="streamTargetHost" class="form-input" placeholder="127.0.0.1">
+                </div>
+                <div class="form-group" style="width:120px">
+                    <label>{{ t('streams.target_port') }} *</label>
+                    <input type="number" id="streamTargetPort" class="form-input" placeholder="3306">
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeModal('streamModal')">{{ t('common.cancel') }}</button>
+            <button class="btn btn-primary" onclick="saveStream()">{{ t('common.save') }}</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showAddStreamModal() { document.getElementById('streamModal').classList.add('active'); }
+
+function saveStream() {
+    const data = {
+        listen_port: parseInt(document.getElementById('streamListenPort').value),
+        target_host: document.getElementById('streamTargetHost').value.trim(),
+        target_port: parseInt(document.getElementById('streamTargetPort').value),
+        protocol: document.getElementById('streamProtocol').value,
+    };
+    fetch('/api/streams', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) })
+        .then(r => r.json())
+        .then(r => { if (r.success) { showToast(i18n.t('common.success'), 'success'); setTimeout(()=>location.reload(), 800); } else showToast(r.error, 'error'); });
+}
+
+function deleteStream(port) {
+    if (!confirm(i18n.t('common.confirm_delete'))) return;
+    fetch(`/api/streams/${port}`, { method:'DELETE' })
+        .then(r => r.json())
+        .then(r => { if (r.success) { showToast(i18n.t('common.success'), 'success'); setTimeout(()=>location.reload(), 800); } });
+}
+</script>
+{% endblock %}

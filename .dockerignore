@@ -1,0 +1,14 @@
+data/
+*.pyc
+__pycache__/
+*.db
+*.log
+.env
+.DS_Store
+.git/
+.gitignore
+node_modules/
+*.egg-info/
+dist/
+build/
+README.md

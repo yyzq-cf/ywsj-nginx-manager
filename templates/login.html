@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="{{ current_language() }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t('login.title') }} — {{ t('app.title') }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body class="auth-body">
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-logo">
+                <i class="fas fa-cube"></i>
+                <h1>nginx<span class="logo-accent">manager</span></h1>
+            </div>
+            <h2>{{ t('login.title') }}</h2>
+            {% if error_key %}
+            <div class="alert alert-error">{{ t(error_key) }}</div>
+            {% endif %}
+            <form method="POST" action="/login" class="auth-form">
+                <div class="form-group">
+                    <div class="input-icon">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" name="password" class="form-input" placeholder="{{ t('login.password') }}" autofocus required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">{{ t('login.submit') }}</button>
+            </form>
+            <div class="auth-footer">
+                <div class="lang-switcher lang-center">
+                    {% for code, name in supported_languages().items() %}
+                    <button class="lang-btn {% if code == current_language() %}active{% endif %}"
+                            onclick="switchLanguage('{{ code }}')">{{ name }}</button>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        window.I18N_LANG = '{{ current_language() }}';
+        window.SUPPORTED_LANGS = {{ supported_languages() | tojson }};
+        // 主题
+        const theme = localStorage.getItem('theme') || 'dark';
+        document.body.classList.toggle('light', theme === 'light');
+        // 语言切换
+        function switchLanguage(lang) {
+            fetch('/api/language', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({language: lang})
+            }).then(() => location.reload());
+        }
+    </script>
+</body>
+</html>

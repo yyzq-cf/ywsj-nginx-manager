@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="{{ current_language() }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t('app.title') }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 侧边栏 -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <a href="/" class="logo">
+                    <i class="fas fa-cube"></i>
+                    <span>nginx<span class="logo-accent">manager</span></span>
+                </a>
+                <button class="sidebar-toggle" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/" class="nav-item {% if request.endpoint == 'index' %}active{% endif %}" data-page="dashboard">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>{{ t('nav.home') }}</span>
+                </a>
+                <a href="/hosts" class="nav-item {% if request.endpoint == 'hosts_page' %}active{% endif %}">
+                    <i class="fas fa-share-nodes"></i>
+                    <span>{{ t('nav.hosts') }}</span>
+                </a>
+                <a href="/ssl" class="nav-item {% if request.endpoint == 'ssl_page' %}active{% endif %}">
+                    <i class="fas fa-shield-halved"></i>
+                    <span>{{ t('nav.ssl') }}</span>
+                </a>
+                <a href="/redirects" class="nav-item {% if request.endpoint == 'redirects_page' %}active{% endif %}">
+                    <i class="fas fa-arrow-right-arrow-left"></i>
+                    <span>{{ t('nav.redirects') }}</span>
+                </a>
+                <a href="/streams" class="nav-item {% if request.endpoint == 'streams_page' %}active{% endif %}">
+                    <i class="fas fa-network-wired"></i>
+                    <span>{{ t('nav.streams') }}</span>
+                </a>
+                <a href="/logs" class="nav-item {% if request.endpoint == 'logs_page' %}active{% endif %}">
+                    <i class="fas fa-file-lines"></i>
+                    <span>{{ t('nav.logs') }}</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <span class="version-badge">v{{ version }}</span>
+            </div>
+        </aside>
+
+        <!-- 主内容区 -->
+        <main class="main-content">
+            <!-- 顶栏 -->
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="mobile-menu-btn" onclick="toggleSidebar()">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h2 class="page-title">{% block page_title %}{{ t('app.title') }}{% endblock %}</h2>
+                </div>
+                <div class="topbar-right">
+                    <!-- 语言切换器 -->
+                    <div class="lang-switcher">
+                        {% for code, name in supported_languages().items() %}
+                        <button class="lang-btn {% if code == current_language() %}active{% endif %}"
+                                onclick="switchLanguage('{{ code }}')">{{ name }}</button>
+                        {% endfor %}
+                    </div>
+                    <!-- 主题切换 -->
+                    <button class="icon-btn" onclick="toggleTheme()" title="Theme">
+                        <i class="fas fa-moon" id="theme-icon"></i>
+                    </button>
+                    <!-- 设置 -->
+                    <button class="icon-btn" onclick="showSettings()" title="{{ t('nav.settings') }}">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                    <!-- GitHub -->
+                    <a href="https://github.com/yyzq-cf/ywsj-nginx-manager" target="_blank" class="icon-btn">
+                        <i class="fab fa-github"></i>
+                    </a>
+                    <!-- 退出 -->
+                    {% if session.get('user_id') %}
+                    <a href="/logout" class="icon-btn" title="{{ t('nav.logout') }}">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </a>
+                    {% endif %}
+                </div>
+            </header>
+
+            <!-- 页面内容 -->
+            <div class="page-content">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <!-- 设置模态框 -->
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>{{ t('settings.title') }}</h3>
+                <button class="modal-close" onclick="closeModal('settingsModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="tabs">
+                    <button class="tab active" onclick="switchTab('tab-account', this)">{{ t('settings.tab_account') }}</button>
+                    <button class="tab" onclick="switchTab('tab-about', this)">{{ t('settings.tab_about') }}</button>
+                </div>
+                <div class="tab-content active" id="tab-account">
+                    <div class="form-section">
+                        <h4>{{ t('settings.change_password') }}</h4>
+                        <div class="form-group">
+                            <label>{{ t('settings.new_password') }}</label>
+                            <input type="password" id="newPassword" class="form-input" placeholder="••••••••">
+                        </div>
+                        <div class="form-group">
+                            <label>{{ t('settings.confirm_password') }}</label>
+                            <input type="password" id="confirmPassword" class="form-input" placeholder="••••••••">
+                        </div>
+                        <button class="btn btn-primary" onclick="changePassword()">{{ t('common.save') }}</button>
+                        <div id="passwordMsg" class="form-msg"></div>
+                    </div>
+                </div>
+                <div class="tab-content" id="tab-about">
+                    <div class="about-section">
+                        <div class="about-item">
+                            <span class="about-label">{{ t('settings.current_version') }}:</span>
+                            <span class="about-value">v{{ version }}</span>
+                        </div>
+                        <div class="about-item">
+                            <span class="about-label">GitHub:</span>
+                            <a href="https://github.com/yyzq-cf/ywsj-nginx-manager" target="_blank">yyzq-cf/ywsj-nginx-manager</a>
+                        </div>
+                        <div class="about-item">
+                            <span class="about-label">Docker Hub:</span>
+                            <a href="https://hub.docker.com/r/ywsj/nginx-manager" target="_blank">ywsj/nginx-manager</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 通知 toast -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- i18n JS -->
+    <script>
+        window.I18N_LANG = '{{ current_language() }}';
+        window.APP_VERSION = '{{ version }}';
+    </script>
+    <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

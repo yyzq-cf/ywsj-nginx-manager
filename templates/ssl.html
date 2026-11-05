@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+{% block page_title %}{{ t('ssl.title') }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>{{ t('ssl.title') }}</h2>
+    <button class="btn btn-primary" onclick="showIssueModal()">
+        <i class="fas fa-plus"></i> {{ t('ssl.add') }}
+    </button>
+</div>
+
+<div class="card">
+    <div class="table-container">
+        {% if certs %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>{{ t('ssl.domain') }}</th>
+                    <th>{{ t('ssl.issued_date') }}</th>
+                    <th>{{ t('ssl.expire_date') }}</th>
+                    <th>{{ t('common.action') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cert in certs %}
+                <tr>
+                    <td class="mono"><strong>{{ cert.domain }}</strong> {% if cert.is_ecc %}<span class="badge badge-info">ECC</span>{% endif %}</td>
+                    <td class="text-muted">{{ cert.issued_date }}</td>
+                    <td>
+                        {% if cert.expire_date %}
+                        <span class="text-muted">{{ cert.expire_date[:11] }}</span>
+                        {% if cert.expire_timestamp %}
+                            {% set days_left = (cert.expire_timestamp - none | int) // 86400 %}
+                        {% endif %}
+                        {% endif %}
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-ghost" onclick="renewCert('{{ cert.domain }}')" title="{{ t('ssl.renew') }}">
+                            <i class="fas fa-rotate"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="revokeCert('{{ cert.domain }}')" title="{{ t('ssl.revoke') }}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-shield-halved" style="font-size:3rem;opacity:0.3"></i>
+            <p>{{ t('ssl.no_cert') }}</p>
+            <button class="btn btn-primary" onclick="showIssueModal()">{{ t('ssl.add') }}</button>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Issue Certificate Modal -->
+<div class="modal-overlay" id="sslModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>{{ t('ssl.add') }}</h3>
+            <button class="modal-close" onclick="closeModal('sslModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>{{ t('ssl.domain') }} *</label>
+                <input type="text" id="sslDomain" class="form-input" placeholder="{{ t('ssl.domain_placeholder') }}">
+            </div>
+            <div class="form-group">
+                <label>{{ t('ssl.dns_provider') }}</label>
+                <select id="dnsProvider" class="form-select" onchange="toggleDnsFields()">
+                    <option value="">{{ t('ssl.dns_provider_none') }}</option>
+                    <option value="dns_cf">{{ t('ssl.dns_provider_cf') }}</option>
+                    <option value="dns_dp">{{ t('ssl.dns_provider_dp') }}</option>
+                    <option value="dns_ali">{{ t('ssl.dns_provider_ali') }}</option>
+                </select>
+            </div>
+            <div id="dnsFields" style="display:none">
+                <div class="form-group">
+                    <label>{{ t('ssl.dns_api_key') }}</label>
+                    <input type="text" id="dnsApiKey" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label>{{ t('ssl.dns_api_secret') }}</label>
+                    <input type="password" id="dnsApiSecret" class="form-input">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>{{ t('ssl.key_length') }}</label>
+                <select id="keyLength" class="form-select">
+                    <option value="ec-256">ECC-256</option>
+                    <option value="ec-384">ECC-384</option>
+                    <option value="2048">RSA-2048</option>
+                </select>
+            </div>
+            <div class="checkbox-group">
+                <label class="checkbox"><input type="checkbox" id="standaloneMode"> {{ t('ssl.standalone') }}</label>
+                <label class="checkbox"><input type="checkbox" id="testMode"> {{ t('ssl.test_mode') }}</label>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeModal('sslModal')">{{ t('common.cancel') }}</button>
+            <button class="btn btn-primary" onclick="issueCertificate()" id="issueBtn">
+                <i class="fas fa-shield-halved"></i> {{ t('ssl.issue') }}
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showIssueModal() { document.getElementById('sslModal').classList.add('active'); }
+
+function toggleDnsFields() {
+    const provider = document.getElementById('dnsProvider').value;
+    document.getElementById('dnsFields').style.display = provider ? 'block' : 'none';
+}
+
+function issueCertificate() {
+    const btn = document.getElementById('issueBtn');
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> {{ t("ssl.issuing") }}';
+    
+    const data = {
+        domain: document.getElementById('sslDomain').value.trim(),
+        dns_provider: document.getElementById('dnsProvider').value || null,
+        dns_api_key: document.getElementById('dnsApiKey').value || null,
+        dns_api_secret: document.getElementById('dnsApiSecret').value || null,
+        standalone: document.getElementById('standaloneMode').checked,
+        key_length: document.getElementById('keyLength').value,
+        test: document.getElementById('testMode').checked,
+    };
+    fetch('/api/ssl/issue', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) })
+        .then(r => r.json())
+        .then(r => {
+            btn.disabled = false; btn.innerHTML = '<i class="fas fa-shield-halved"></i> {{ t("ssl.issue") }}';
+            if (r.success) { showToast(i18n.t('ssl.issue_success'), 'success'); setTimeout(() => location.reload(), 1500); }
+            else { showToast(r.error || i18n.t('ssl.issue_failed'), 'error', 8000); }
+        });
+}
+
+function renewCert(domain) {
+    if (!confirm(i18n.t('ssl.renew') + ': ' + domain + '?')) return;
+    fetch(`/api/ssl/${encodeURIComponent(domain)}/renew`, { method:'POST' })
+        .then(r => r.json())
+        .then(r => { if (r.success) showToast(i18n.t('common.success'), 'success'); else showToast(r.message, 'error'); });
+}
+
+function revokeCert(domain) {
+    if (!confirm(i18n.t('ssl.revoke') + ': ' + domain + '?')) return;
+    fetch(`/api/ssl/${encodeURIComponent(domain)}/revoke`, { method:'DELETE' })
+        .then(r => r.json())
+        .then(r => { if (r.success) { showToast(i18n.t('common.success'), 'success'); setTimeout(()=>location.reload(), 1000); } else showToast(r.message, 'error'); });
+}
+</script>
+{% endblock %}

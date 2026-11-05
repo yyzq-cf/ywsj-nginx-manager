@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% block page_title %}{{ t('logs.title') }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>{{ t('logs.title') }}</h2>
+    <div class="header-actions">
+        <select id="logLines" class="form-select" style="width:auto" onchange="changeLines()">
+            <option value="50">50</option>
+            <option value="100" {% if lines == 100 %}selected{% endif %}>100</option>
+            <option value="200" {% if lines == 200 %}selected{% endif %}>200</option>
+            <option value="500" {% if lines == 500 %}selected{% endif %}>500</option>
+        </select>
+        <button class="btn btn-ghost" onclick="location.reload()"><i class="fas fa-rotate"></i> {{ t('logs.refresh') }}</button>
+    </div>
+</div>
+
+<!-- 统计卡片 -->
+<div class="stats-grid">
+    <div class="card stat-mini">
+        <div class="card-label">{{ t('logs.total_requests') }}</div>
+        <div class="card-value">{{ stats.total if stats else 0 }}</div>
+    </div>
+</div>
+
+<div class="logs-row">
+    <!-- Top IPs -->
+    <div class="card">
+        <div class="card-header"><h3>{{ t('logs.top_ips') }}</h3></div>
+        <div class="table-container">
+            {% if stats and stats.top_ips %}
+            <table class="table table-sm">
+                <tbody>
+                    {% for ip, count in stats.top_ips.items() %}
+                    <tr><td class="mono">{{ ip }}</td><td class="text-right"><strong>{{ count }}</strong></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">{{ t('common.no_data') }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Top URLs -->
+    <div class="card">
+        <div class="card-header"><h3>{{ t('logs.top_urls') }}</h3></div>
+        <div class="table-container">
+            {% if stats and stats.top_urls %}
+            <table class="table table-sm">
+                <tbody>
+                    {% for url, count in stats.top_urls.items() %}
+                    <tr><td class="mono text-truncate">{{ url }}</td><td class="text-right"><strong>{{ count }}</strong></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">{{ t('common.no_data') }}</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- 访问日志 -->
+<div class="card">
+    <div class="card-header"><h3>{{ t('logs.access_log') }}</h3></div>
+    <div class="log-viewer">
+        {% if access_logs %}
+        <table class="table table-striped">
+            <thead>
+                <tr><th>IP</th><th>{{ t('common.status') }}</th><th>Request</th><th>Bytes</th><th>Time</th><th>User Agent</th></tr>
+            </thead>
+            <tbody>
+                {% for log in access_logs %}
+                <tr>
+                    <td class="mono">{{ log.ip if log.ip else '-' }}</td>
+                    <td>{% if log.status %}<span class="status-badge status-{{ log.status // 100 }}xx">{{ log.status }}</span>{% else %}-{% endif %}</td>
+                    <td class="mono text-truncate" style="max-width:300px">{{ log.request if log.request else log.get('raw', '-') }}</td>
+                    <td class="text-muted">{{ log.bytes if log.bytes else '-' }}</td>
+                    <td class="text-muted">{{ log.time if log.time else '-' }}</td>
+                    <td class="text-muted text-truncate" style="max-width:200px">{{ log.user_agent if log.user_agent else '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">{{ t('common.no_data') }}</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function changeLines() {
+    const lines = document.getElementById('logLines').value;
+    location.href = `/logs?lines=${lines}`;
+}
+</script>
+{% endblock %}

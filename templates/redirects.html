@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% block page_title %}{{ t('redirects.title') }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>{{ t('redirects.title') }}</h2>
+    <button class="btn btn-primary" onclick="showAddRedirectModal()">
+        <i class="fas fa-plus"></i> {{ t('redirects.add') }}
+    </button>
+</div>
+
+<div class="card">
+    <div class="table-container">
+        {% if redirects %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>{{ t('redirects.domain') }}</th>
+                    <th>{{ t('redirects.target') }}</th>
+                    <th>{{ t('redirects.permanent') }}</th>
+                    <th>{{ t('common.action') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in redirects %}
+                <tr>
+                    <td class="mono"><strong>{{ r.server_names[0] if r.server_names else '-' }}</strong></td>
+                    <td class="mono">{{ r.content.split('return ')[1].split(';')[0] if 'return ' in r.content else '-' }}</td>
+                    <td>{% if '301' in r.content %}<span class="badge badge-info">301</span>{% else %}<span class="badge badge-muted">302</span>{% endif %}</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger" onclick="deleteRedirect('{{ r.server_names[0] if r.server_names else '' }}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-arrow-right-arrow-left" style="font-size:3rem;opacity:0.3"></i>
+            <p>{{ t('common.no_data') }}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="modal-overlay" id="redirectModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>{{ t('redirects.add') }}</h3>
+            <button class="modal-close" onclick="closeModal('redirectModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>{{ t('redirects.domain') }} *</label>
+                <input type="text" id="redirectDomain" class="form-input" placeholder="example.com">
+            </div>
+            <div class="form-group">
+                <label>{{ t('redirects.target') }} *</label>
+                <input type="text" id="redirectTarget" class="form-input" placeholder="{{ t('redirects.target_placeholder') }}">
+            </div>
+            <div class="checkbox-group">
+                <label class="checkbox"><input type="checkbox" id="redirectPermanent" checked> {{ t('redirects.permanent') }}</label>
+                <label class="checkbox"><input type="checkbox" id="redirectPreservePath" checked> {{ t('redirects.preserve_path') }}</label>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeModal('redirectModal')">{{ t('common.cancel') }}</button>
+            <button class="btn btn-primary" onclick="saveRedirect()">{{ t('common.save') }}</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showAddRedirectModal() { document.getElementById('redirectModal').classList.add('active'); }
+
+function saveRedirect() {
+    const data = {
+        domain: document.getElementById('redirectDomain').value.trim(),
+        target_url: document.getElementById('redirectTarget').value.trim(),
+        permanent: document.getElementById('redirectPermanent').checked,
+        preserve_path: document.getElementById('redirectPreservePath').checked,
+    };
+    fetch('/api/redirects', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) })
+        .then(r => r.json())
+        .then(r => { if (r.success) { showToast(i18n.t('common.success'), 'success'); setTimeout(()=>location.reload(), 800); } else showToast(r.error, 'error'); });
+}
+
+function deleteRedirect(domain) {
+    if (!confirm(i18n.t('common.confirm_delete'))) return;
+    fetch(`/api/redirects/${encodeURIComponent(domain)}`, { method:'DELETE' })
+        .then(r => r.json())
+        .then(r => { if (r.success) { showToast(i18n.t('common.success'), 'success'); setTimeout(()=>location.reload(), 800); } });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% block page_title %}{{ t('dashboard.title') }}{% endblock %}
+
+{% block content %}
+<div class="dashboard-grid">
+    <!-- Nginx 状态卡片 -->
+    <div class="card status-card {{ 'status-ok' if status.running else 'status-down' }}">
+        <div class="card-icon"><i class="fas fa-server"></i></div>
+        <div class="card-body">
+            <div class="card-label">{{ t('dashboard.nginx_status') }}</div>
+            <div class="card-value">{{ t('dashboard.running') if status.running else t('dashboard.stopped') }}</div>
+            {% if status.version %}<div class="card-sub">{{ status.version }}</div>{% endif %}
+        </div>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="card stat-card" onclick="location.href='/hosts'">
+        <div class="card-icon"><i class="fas fa-share-nodes"></i></div>
+        <div class="card-body">
+            <div class="card-label">{{ t('dashboard.total_hosts') }}</div>
+            <div class="card-value">{{ proxy_count }}</div>
+        </div>
+    </div>
+    <div class="card stat-card" onclick="location.href='/ssl'">
+        <div class="card-icon"><i class="fas fa-shield-halved"></i></div>
+        <div class="card-body">
+            <div class="card-label">{{ t('dashboard.total_ssl') }}</div>
+            <div class="card-value">{{ ssl_count }}</div>
+        </div>
+    </div>
+    <div class="card stat-card" onclick="location.href='/redirects'">
+        <div class="card-icon"><i class="fas fa-arrow-right-arrow-left"></i></div>
+        <div class="card-body">
+            <div class="card-label">{{ t('dashboard.total_redirects') }}</div>
+            <div class="card-value">{{ redirect_count }}</div>
+        </div>
+    </div>
+    <div class="card stat-card" onclick="location.href='/streams'">
+        <div class="card-icon"><i class="fas fa-network-wired"></i></div>
+        <div class="card-body">
+            <div class="card-label">{{ t('dashboard.total_streams') }}</div>
+            <div class="card-value">{{ stream_count }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- 配置检查 + 快捷操作 -->
+<div class="dashboard-row">
+    <div class="card config-check-card">
+        <div class="card-header">
+            <h3><i class="fas fa-wrench"></i> {{ t('common.test_config') }}</h3>
+            <button class="btn btn-sm btn-primary" onclick="reloadNginx()">
+                <i class="fas fa-rotate"></i> {{ t('common.reload') }}
+            </button>
+        </div>
+        <div class="conf-test-result" id="confTestResult">
+            {% if status.conf_test %}
+                {% if status.conf_test.ok %}
+                <div class="alert alert-success">{{ t('dashboard.conf_ok') }}</div>
+                {% else %}
+                <div class="alert alert-error">{{ t('dashboard.conf_error') }}</div>
+                <pre class="conf-error-output">{{ status.conf_test.output }}</pre>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 状态码分布 -->
+    <div class="card">
+        <div class="card-header">
+            <h3><i class="fas fa-chart-bar"></i> {{ t('logs.status_codes') }}</h3>
+        </div>
+        <div class="status-code-bars" id="statusCodeBars">
+            {% if log_stats and log_stats.status_codes %}
+            {% set total = log_stats.total %}
+            {% set codes_2xx = log_stats.status_codes.get('200', 0) + log_stats.status_codes.get('201', 0) + log_stats.status_codes.get('204', 0) %}
+            {% set codes_3xx = log_stats.status_codes.get('301', 0) + log_stats.status_codes.get('302', 0) + log_stats.status_codes.get('304', 0) %}
+            {% set codes_4xx = log_stats.status_codes.get('400', 0) + log_stats.status_codes.get('401', 0) + log_stats.status_codes.get('403', 0) + log_stats.status_codes.get('404', 0) %}
+            {% set codes_5xx = log_stats.status_codes.get('500', 0) + log_stats.status_codes.get('502', 0) + log_stats.status_codes.get('503', 0) %}
+            <div class="status-bar-item">
+                <span class="status-bar-label">{{ t('dashboard.status_2xx') }}</span>
+                <div class="status-bar-track"><div class="status-bar-fill status-2xx" style="width: {{ (codes_2xx / total * 100) if total else 0 }}%"></div></div>
+                <span class="status-bar-value">{{ codes_2xx }}</span>
+            </div>
+            <div class="status-bar-item">
+                <span class="status-bar-label">{{ t('dashboard.status_3xx') }}</span>
+                <div class="status-bar-track"><div class="status-bar-fill status-3xx" style="width: {{ (codes_3xx / total * 100) if total else 0 }}%"></div></div>
+                <span class="status-bar-value">{{ codes_3xx }}</span>
+            </div>
+            <div class="status-bar-item">
+                <span class="status-bar-label">{{ t('dashboard.status_4xx') }}</span>
+                <div class="status-bar-track"><div class="status-bar-fill status-4xx" style="width: {{ (codes_4xx / total * 100) if total else 0 }}%"></div></div>
+                <span class="status-bar-value">{{ codes_4xx }}</span>
+            </div>
+            <div class="status-bar-item">
+                <span class="status-bar-label">{{ t('dashboard.status_5xx') }}</span>
+                <div class="status-bar-track"><div class="status-bar-fill status-5xx" style="width: {{ (codes_5xx / total * 100) if total else 0 }}%"></div></div>
+                <span class="status-bar-value">{{ codes_5xx }}</span>
+            </div>
+            {% else %}
+            <div class="empty-state">{{ t('common.no_data') }}</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- 最近访问 -->
+<div class="card">
+    <div class="card-header">
+        <h3><i class="fas fa-clock-rotate-left"></i> {{ t('dashboard.recent_logs') }}</h3>
+        <a href="/logs" class="btn btn-sm btn-ghost">{{ t('common.refresh') }}</a>
+    </div>
+    <div class="table-container">
+        {% if recent_logs %}
+        <table class="table">
+            <thead>
+                <tr><th>IP</th><th>{{ t('common.status') }}</th><th>Request</th><th>Time</th></tr>
+            </thead>
+            <tbody>
+                {% for log in recent_logs %}
+                <tr>
+                    <td class="mono">{{ log.ip if log.ip else '-' }}</td>
+                    <td><span class="status-badge status-{{ log.status // 100 if log.status else 0 }}xx">{{ log.status if log.status else '-' }}</span></td>
+                    <td class="mono text-truncate">{{ log.request if log.request else log.get('raw', '-') }}</td>
+                    <td class="text-muted">{{ log.time if log.time else '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">{{ t('common.no_data') }}</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
