@@ -347,6 +347,7 @@ function viewCert(domain) {
                 document.getElementById('dnsCredBox').style.display = 'none';
             }
         });
+}
 
 function reissueCert() {
     const btn = document.getElementById('reissueBtn');
@@ -410,7 +411,6 @@ function reissueCert() {
         if (progressEl.parentNode) progressEl.remove();
         msgEl.innerHTML = '<span style="color:var(--error)">Network error: ' + err + '</span>';
     });
-}
 }
 
 function copyText(elementId) {
