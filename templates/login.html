@@ -6,8 +6,115 @@
     <title>{{ t('login.title') }} — {{ t('app.title') }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        /* 登录页主题切换按钮 */
+        .auth-theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: var(--card);
+            color: var(--muted);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            transition: var(--transition);
+            z-index: 100;
+        }
+        .auth-theme-toggle:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            transform: rotate(180deg);
+        }
+
+        /* 2FA 验证码输入框美化 */
+        .totp-input-wrap {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin: 28px 0 24px;
+        }
+        .totp-digit {
+            width: 48px;
+            height: 56px;
+            text-align: center;
+            font-size: 1.6rem;
+            font-weight: 700;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            background: var(--bg-secondary);
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text);
+            outline: none;
+            transition: var(--transition);
+            caret-color: var(--accent);
+        }
+        .totp-digit:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px var(--accent-light);
+            background: var(--card);
+        }
+        .totp-digit.filled {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        .totp-digit:nth-child(3) { margin-right: 12px; }
+
+        /* 2FA 图标动画 */
+        .auth-shield {
+            width: 72px;
+            height: 72px;
+            margin: 0 auto 16px;
+            border-radius: 50%;
+            background: var(--accent-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: var(--accent);
+            animation: shieldPulse 2s ease-in-out infinite;
+        }
+        @keyframes shieldPulse {
+            0%, 100% { box-shadow: 0 0 0 0 var(--accent-light); }
+            50% { box-shadow: 0 0 0 12px transparent; }
+        }
+
+        /* 登录页底部装饰 */
+        .auth-bg-deco {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.15;
+            z-index: -1;
+            pointer-events: none;
+        }
+        .auth-bg-deco-1 {
+            width: 300px; height: 300px;
+            background: var(--accent);
+            top: -50px; right: -50px;
+        }
+        .auth-bg-deco-2 {
+            width: 250px; height: 250px;
+            background: var(--info);
+            bottom: -60px; left: -60px;
+        }
+    </style>
 </head>
 <body class="auth-body">
+    <!-- 背景装饰 -->
+    <div class="auth-bg-deco auth-bg-deco-1"></div>
+    <div class="auth-bg-deco auth-bg-deco-2"></div>
+
+    <!-- 主题切换按钮 -->
+    <button class="auth-theme-toggle" onclick="toggleAuthTheme()" title="明暗切换">
+        <i class="fas fa-moon" id="auth-theme-icon"></i>
+    </button>
+
     <div class="auth-container">
         <div class="auth-card">
             <div class="auth-logo">
@@ -17,25 +124,35 @@
 
             {% if twofa_stage %}
             <!-- === 2FA 验证阶段 === -->
-            <h2><i class="fas fa-shield-halved" style="color: var(--accent)"></i> {{ t('login.2fa_title') }}</h2>
-            <p class="text-muted text-center">{{ t('login.2fa_hint') }}</p>
+            <div class="auth-shield">
+                <i class="fas fa-shield-halved"></i>
+            </div>
+            <h2>{{ t('login.2fa_title') }}</h2>
+            <p class="text-muted text-center" style="font-size:0.85rem">{{ t('login.2fa_hint') }}</p>
             {% if error_key %}
-            <div class="alert alert-error">{{ t(error_key) }}</div>
+            <div class="alert alert-error" style="margin-top:16px">{{ t(error_key) }}</div>
             {% endif %}
-            <form method="POST" action="/login" class="auth-form">
+            <form method="POST" action="/login" class="auth-form" id="totp-form">
                 <input type="hidden" name="pending_token" value="{{ pending_token }}">
-                <div class="form-group">
-                    <div class="input-icon">
-                        <i class="fas fa-key"></i>
-                        <input type="text" name="code" maxlength="6"
-                               style="text-align:center; letter-spacing:6px; font-size:20px; font-family:monospace"
-                               autocomplete="one-time-code" placeholder="000000" autofocus required>
-                    </div>
+                <input type="hidden" name="code" id="totp-hidden">
+                <div class="totp-input-wrap">
+                    <input type="text" class="totp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]" data-idx="0" autofocus>
+                    <input type="text" class="totp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]" data-idx="1">
+                    <input type="text" class="totp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]" data-idx="2">
+                    <input type="text" class="totp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]" data-idx="3">
+                    <input type="text" class="totp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]" data-idx="4">
+                    <input type="text" class="totp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]" data-idx="5">
                 </div>
-                <button type="submit" class="btn btn-primary btn-block">{{ t('login.2fa_verify') }}</button>
+                <button type="submit" class="btn btn-primary btn-block" id="totp-submit">
+                    <i class="fas fa-check" style="margin-right:6px"></i>
+                    {{ t('login.2fa_verify') }}
+                </button>
             </form>
             <div class="auth-footer">
-                <a href="/login" class="text-muted">← {{ t('login.2fa_back') }}</a>
+                <a href="/login" class="text-muted">
+                    <i class="fas fa-arrow-left" style="margin-right:4px"></i>
+                    {{ t('login.2fa_back') }}
+                </a>
             </div>
 
             {% else %}
@@ -51,7 +168,10 @@
                         <input type="password" name="password" class="form-input" placeholder="{{ t('login.password') }}" autofocus required>
                     </div>
                 </div>
-                <button type="submit" class="btn btn-primary btn-block">{{ t('login.submit') }}</button>
+                <button type="submit" class="btn btn-primary btn-block">
+                    <i class="fas fa-sign-in-alt" style="margin-right:6px"></i>
+                    {{ t('login.submit') }}
+                </button>
             </form>
             <div class="auth-footer">
                 <div class="lang-switcher lang-center">
@@ -66,8 +186,24 @@
     </div>
     <script>
         window.I18N_LANG = '{{ current_language() }}';
-        const theme = localStorage.getItem('theme') || 'dark';
-        document.body.classList.toggle('light', theme === 'light');
+
+        // 主题初始化
+        (function() {
+            const theme = localStorage.getItem('theme') || 'dark';
+            if (theme === 'light') {
+                document.body.classList.add('light');
+                const icon = document.getElementById('auth-theme-icon');
+                if (icon) icon.className = 'fas fa-sun';
+            }
+        })();
+
+        function toggleAuthTheme() {
+            document.body.classList.toggle('light');
+            const isLight = document.body.classList.contains('light');
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+            document.getElementById('auth-theme-icon').className = isLight ? 'fas fa-sun' : 'fas fa-moon';
+        }
+
         function switchLanguage(lang) {
             fetch('/api/language', {
                 method: 'POST',
@@ -75,6 +211,60 @@
                 body: JSON.stringify({language: lang})
             }).then(() => location.reload());
         }
+
+        // 2FA 验证码输入逻辑
+        (function() {
+            var digits = document.querySelectorAll('.totp-digit');
+            if (!digits.length) return;
+
+            digits.forEach(function(digit, idx) {
+                digit.addEventListener('input', function(e) {
+                    var val = e.target.value.replace(/\D/g, '');
+                    e.target.value = val;
+                    if (val && idx < digits.length - 1) {
+                        digits[idx + 1].focus();
+                    }
+                    updateHidden();
+                });
+
+                digit.addEventListener('keydown', function(e) {
+                    if (e.key === 'Backspace' && !e.target.value && idx > 0) {
+                        digits[idx - 1].focus();
+                        digits[idx - 1].value = '';
+                        updateHidden();
+                    }
+                    if (e.key === 'ArrowLeft' && idx > 0) digits[idx - 1].focus();
+                    if (e.key === 'ArrowRight' && idx < digits.length - 1) digits[idx + 1].focus();
+                });
+
+                digit.addEventListener('paste', function(e) {
+                    e.preventDefault();
+                    var pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
+                    pasted.split('').slice(0, 6).forEach(function(ch, i) {
+                        if (digits[i]) {
+                            digits[i].value = ch;
+                            digits[i].classList.add('filled');
+                        }
+                    });
+                    var next = Math.min(pasted.length, 5);
+                    if (digits[next]) digits[next].focus();
+                    updateHidden();
+                });
+            });
+
+            function updateHidden() {
+                var code = '';
+                digits.forEach(function(d) {
+                    code += d.value;
+                    d.classList.toggle('filled', !!d.value);
+                });
+                document.getElementById('totp-hidden').value = code;
+                // 6位输完自动提交
+                if (code.length === 6) {
+                    document.getElementById('totp-form').submit();
+                }
+            }
+        })();
     </script>
 </body>
 </html>
