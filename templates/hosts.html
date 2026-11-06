@@ -25,7 +25,16 @@
             <tbody>
                 {% for p in proxies %}
                 <tr>
-                    <td class="mono"><strong>{{ p.server_names[0] if p.server_names else '-' }}</strong></td>
+                    <td class="mono">
+                        {% set dname = p.server_names[0] if p.server_names else '' %}
+                        <strong>{{ dname }}</strong>
+                        {% if dname %}
+                        <a href="{{ 'https://' if p.has_ssl else 'http://' }}{{ dname }}" target="_blank" rel="noopener" 
+                           class="btn btn-sm btn-ghost" title="{{ t('common.open') }}" style="margin-left:6px;padding:2px 8px">
+                            <i class="fas fa-external-link-alt"></i>
+                        </a>
+                        {% endif %}
+                    </td>
                     <td class="mono">{{ p.proxy_passes[0] if p.proxy_passes else '-' }}</td>
                     <td>
                         {% if p.has_ssl %}

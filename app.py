@@ -285,7 +285,7 @@ def login():
 
             db = get_db()
             user = db.execute('SELECT * FROM users WHERE username = ? OR id = 1', (username,)).fetchone()
-            if user and user.get('username') and user['username'] != username:
+            if user and user['username'] and user['username'] != username:
                 record_failed_attempt(ip)
                 return render_template('login.html', error_key='login.error')
             if user and check_password_hash(user['password_hash'], password):
