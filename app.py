@@ -239,7 +239,7 @@ def login():
             with _2fa_lock:
                 pending = _2fa_pending.get(pending_token)
                 if not pending:
-                    return render_template('login.html', error_key='login.error', twofa_stage=False)
+                    return render_template('login.html', error_key='login.expired', twofa_stage=False)
                 if time.time() > pending['expire']:
                     _2fa_pending.pop(pending_token, None)
                     return render_template('login.html', error_key='login.expired', twofa_stage=False)
@@ -268,7 +268,7 @@ def login():
                     return render_template('login.html', error_key='login.totp_error',
                                            pending_token=pending_token, twofa_stage=True)
             else:
-                return render_template('login.html', error_key='login.error', twofa_stage=False)
+                return render_template('login.html', error_key='login.expired', twofa_stage=False)
 
         else:
             # === Phase 1: 密码验证 ===
