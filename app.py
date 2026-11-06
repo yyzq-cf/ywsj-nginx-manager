@@ -123,8 +123,11 @@ def init_db():
         db.execute("ALTER TABLE users ADD COLUMN totp_secret TEXT")
     if 'username' not in cols:
         db.execute("ALTER TABLE users ADD COLUMN username TEXT")
-        # 给已有用户设置默认用户名
         db.execute("UPDATE users SET username = 'admin' WHERE username IS NULL")
+    # proxy_hosts 表加 backends 字段
+    pcols = [r[1] for r in db.execute("PRAGMA table_info(proxy_hosts)").fetchall()]
+    if 'backends' not in pcols:
+        db.execute("ALTER TABLE proxy_hosts ADD COLUMN backends TEXT DEFAULT ''")
     db.commit()
 
 
@@ -456,9 +459,12 @@ def api_hosts_create():
     block_exploits = bool(data.get('block_exploits', True))
     force_ssl = bool(data.get('force_ssl', False))
     custom_config = data.get('custom_config', '')
+    backends = data.get('backends', [])  # 多后端列表
     
-    if not domain or not forward_host:
-        return jsonify({'success': False, 'error': 'domain and forward_host required'}), 400
+    if not domain:
+        return jsonify({'success': False, 'error': 'domain required'}), 400
+    if not forward_host and not backends:
+        return jsonify({'success': False, 'error': 'forward_host or backends required'}), 400
     
     # 生成 nginx 配置
     conf = generate_proxy_conf(
@@ -472,6 +478,7 @@ def api_hosts_create():
         block_common_exploits=block_exploits,
         force_ssl=force_ssl,
         custom_config=custom_config,
+        backends=backends if backends else None,
     )
     
     # 保存配置文件
@@ -493,13 +500,15 @@ def api_hosts_create():
     # 保存到数据库
     db = get_db()
     try:
+        import json as _json
         db.execute(
             '''INSERT INTO proxy_hosts 
             (domain, forward_host, forward_port, forward_scheme, ssl_cert_path, ssl_key_path,
-             websocket, block_exploits, force_ssl, custom_config)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+             websocket, block_exploits, force_ssl, custom_config, backends)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
             (domain, forward_host, forward_port, forward_scheme, ssl_cert_path, ssl_key_path,
-             int(websocket), int(block_exploits), int(force_ssl), custom_config)
+             int(websocket), int(block_exploits), int(force_ssl), custom_config,
+             _json.dumps(backends) if backends else '')
         )
         db.commit()
     except sqlite3.IntegrityError:
@@ -531,9 +540,10 @@ def api_hosts_update(domain):
     block_exploits = bool(data.get('block_exploits', True))
     force_ssl = bool(data.get('force_ssl', False))
     custom_config = data.get('custom_config', '')
+    backends = data.get('backends', [])
     
-    if not forward_host:
-        return jsonify({'success': False, 'error': 'forward_host required'}), 400
+    if not forward_host and not backends:
+        return jsonify({'success': False, 'error': 'forward_host or backends required'}), 400
     
     # 重新生成 nginx 配置
     conf = generate_proxy_conf(
@@ -547,6 +557,7 @@ def api_hosts_update(domain):
         block_common_exploits=block_exploits,
         force_ssl=force_ssl,
         custom_config=custom_config,
+        backends=backends if backends else None,
     )
     
     # 保存配置文件（覆盖）
@@ -563,14 +574,16 @@ def api_hosts_update(domain):
         return jsonify({'success': False, 'error': msg}), 500
     
     # 更新数据库
+    import json as _json
     db = get_db()
     db.execute(
         '''UPDATE proxy_hosts SET 
         forward_host=?, forward_port=?, forward_scheme=?, ssl_cert_path=?, ssl_key_path=?,
-        websocket=?, block_exploits=?, force_ssl=?, custom_config=?, updated_at=datetime('now','localtime')
+        websocket=?, block_exploits=?, force_ssl=?, custom_config=?, backends=?, updated_at=datetime('now','localtime')
         WHERE domain=?''',
         (forward_host, forward_port, forward_scheme, ssl_cert_path, ssl_key_path,
-         int(websocket), int(block_exploits), int(force_ssl), custom_config, domain)
+         int(websocket), int(block_exploits), int(force_ssl), custom_config,
+         _json.dumps(backends) if backends else '', domain)
     )
     db.commit()
     

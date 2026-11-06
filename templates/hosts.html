@@ -95,6 +95,16 @@
                     <option value="https">https</option>
                 </select>
             </div>
+            <!-- 多后端负载均衡 -->
+            <div class="form-group">
+                <label>{{ t('hosts.backends_title') }} <span class="text-muted" style="font-size:0.8rem">{{ t('hosts.backends_hint') }}</span></label>
+                <div id="backendsList" style="display:none;margin-bottom:8px">
+                    <!-- 动态填充 -->
+                </div>
+                <button class="btn btn-sm btn-ghost" onclick="addBackend()" type="button">
+                    <i class="fas fa-plus"></i> {{ t('hosts.add_backend') }}
+                </button>
+            </div>
             <div class="form-group">
                 <label>{{ t('hosts.ssl_cert') }}</label>
                 <select id="hostSslCert" class="form-select">
@@ -139,6 +149,7 @@ function showAddHostModal() {
     document.getElementById('hostWebsocket').checked = false;
     document.getElementById('hostBlockExploits').checked = true;
     document.getElementById('hostCustomConfig').value = '';
+    clearBackends();
     document.getElementById('hostModal').classList.add('active');
 }
 
@@ -163,6 +174,14 @@ function editHost(domain) {
             document.getElementById('hostWebsocket').checked = !!h.websocket;
             document.getElementById('hostBlockExploits').checked = h.block_exploits !== 0;
             document.getElementById('hostCustomConfig').value = h.custom_config || '';
+            // 加载多后端
+            clearBackends();
+            if (h.backends) {
+                try { 
+                    let bs = typeof h.backends === 'string' ? JSON.parse(h.backends) : h.backends;
+                    if (Array.isArray(bs) && bs.length > 0) bs.forEach(b => addBackend(b));
+                } catch(e) {}
+            }
             document.getElementById('hostModal').classList.add('active');
         });
 }
@@ -181,6 +200,7 @@ function saveHost() {
         websocket: document.getElementById('hostWebsocket').checked,
         block_exploits: document.getElementById('hostBlockExploits').checked,
         custom_config: document.getElementById('hostCustomConfig').value,
+        backends: collectBackends(),
     };
 
     if (editingDomain) {
@@ -215,6 +235,74 @@ function deleteHost(domain) {
     fetch(`/api/hosts/${encodeURIComponent(domain)}`, { method: 'DELETE' })
         .then(r => r.json())
         .then(r => { if (r.success) { showToast(i18n.t('common.success'), 'success'); setTimeout(() => location.reload(), 800); } });
+}
+
+// ===== 多后端负载均衡 =====
+function addBackend(data) {
+    data = data || {};
+    const list = document.getElementById('backendsList');
+    const idx = list.children.length;
+    const row = document.createElement('div');
+    row.className = 'form-row';
+    row.style.cssText = 'align-items:end;gap:8px;margin-bottom:8px;padding:10px;background:var(--bg-secondary);border-radius:var(--radius-sm)';
+    row.innerHTML = `
+        <div style="flex:1">
+            <label style="font-size:0.75rem;color:var(--muted)">{{ t('hosts.backend_host') }}</label>
+            <input type="text" class="form-input backend-host" placeholder="192.168.1.10" value="${data.host || ''}" style="font-size:0.85rem">
+        </div>
+        <div style="width:80px">
+            <label style="font-size:0.75rem;color:var(--muted)">Port</label>
+            <input type="number" class="form-input backend-port" placeholder="8080" value="${data.port || 80}" style="font-size:0.85rem">
+        </div>
+        <div style="width:60px">
+            <label style="font-size:0.75rem;color:var(--muted)">Weight</label>
+            <input type="number" class="form-input backend-weight" placeholder="1" value="${data.weight || 1}" style="font-size:0.85rem">
+        </div>
+        <div style="width:60px">
+            <label style="font-size:0.75rem;color:var(--muted)">Fails</label>
+            <input type="number" class="form-input backend-maxfails" placeholder="3" value="${data.max_fails || 3}" style="font-size:0.85rem">
+        </div>
+        <div style="width:80px">
+            <label style="font-size:0.75rem;color:var(--muted)">Timeout</label>
+            <input type="number" class="form-input backend-failtimeout" placeholder="30" value="${data.fail_timeout || 30}" style="font-size:0.85rem">
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;padding-bottom:6px">
+            <label class="checkbox" style="font-size:0.75rem"><input type="checkbox" class="backend-backup" ${data.backup ? 'checked' : ''}> 备用</label>
+        </div>
+        <button class="btn btn-sm btn-danger" onclick="this.parentElement.remove(); toggleBackendsList()" type="button" style="margin-bottom:4px">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+    list.appendChild(row);
+    toggleBackendsList();
+}
+
+function clearBackends() {
+    document.getElementById('backendsList').innerHTML = '';
+    toggleBackendsList();
+}
+
+function toggleBackendsList() {
+    const list = document.getElementById('backendsList');
+    list.style.display = list.children.length > 0 ? 'block' : 'none';
+}
+
+function collectBackends() {
+    const list = document.getElementById('backendsList');
+    const backends = [];
+    list.querySelectorAll('.form-row').forEach(row => {
+        const host = row.querySelector('.backend-host').value.trim();
+        if (!host) return;
+        backends.push({
+            host: host,
+            port: parseInt(row.querySelector('.backend-port').value) || 80,
+            weight: parseInt(row.querySelector('.backend-weight').value) || 1,
+            max_fails: parseInt(row.querySelector('.backend-maxfails').value) || 3,
+            fail_timeout: parseInt(row.querySelector('.backend-failtimeout').value) || 30,
+            backup: row.querySelector('.backend-backup').checked,
+        });
+    });
+    return backends;
 }
 </script>
 {% endblock %}

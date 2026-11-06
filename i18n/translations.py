@@ -80,6 +80,10 @@ TRANSLATIONS = {
             'custom_config': '自定义配置',
             'custom_config_hint': '额外的 nginx 配置指令',
             'ssl_required': '需要先申请 SSL 证书才能启用 HTTPS',
+            'backends_title': '多后端负载均衡',
+            'backends_hint': '可选，添加后启用 upstream 轮询高可用',
+            'add_backend': '添加后端',
+            'backend_host': '后端地址',
         },
         'ssl': {
             'title': 'SSL 证书',
@@ -297,6 +301,10 @@ TRANSLATIONS = {
             'custom_config': 'Custom Config',
             'custom_config_hint': 'Additional nginx directives',
             'ssl_required': 'Request an SSL certificate first to enable HTTPS',
+            'backends_title': 'Multi-Backend Load Balancing',
+            'backends_hint': 'Optional, enables upstream round-robin HA',
+            'add_backend': 'Add Backend',
+            'backend_host': 'Backend Host',
         },
         'ssl': {
             'title': 'SSL Certificates',

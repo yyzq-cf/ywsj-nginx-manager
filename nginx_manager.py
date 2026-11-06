@@ -70,8 +70,14 @@ def generate_proxy_conf(
     domain, forward_host, forward_port, forward_scheme="http",
     ssl_cert_path=None, ssl_key_path=None, websocket=False,
     custom_config="", block_common_exploits=True, force_ssl=False,
+    backends=None,
 ):
-    """生成 nginx 反向代理配置"""
+    """生成 nginx 反向代理配置
+    
+    backends: 可选，后端列表 [{"host":"1.2.3.4","port":8080,"weight":1,"max_fails":3,"fail_timeout":30,"backup":False}, ...]
+    如果传了 backends 则使用 upstream 负载均衡，否则用单个 forward_host:forward_port
+    """
+    import json as _json
     has_ssl = ssl_cert_path and ssl_key_path
     
     listen_lines = []
@@ -96,6 +102,41 @@ def generate_proxy_conf(
             "    return 301 https://$host$request_uri;\n"
             "}\n"
         )
+    
+    # upstream 负载均衡块
+    upstream_name = None
+    if backends and len(backends) > 0:
+        # 清理域名作为 upstream 名
+        upstream_name = re.sub(r'[^a-zA-Z0-9_]', '_', domain)
+        upstream_block = f"upstream {upstream_name} {{\n"
+        upstream_block += "    # 负载均衡策略: 轮询(默认) / least_conn / ip_hash\n"
+        upstream_block += "    # least_conn;  # 最少连接数\n"
+        upstream_block += "    # ip_hash;     # IP会话保持\n"
+        for be in backends:
+            host = be.get('host', '')
+            port = be.get('port', 80)
+            weight = be.get('weight', 1)
+            max_fails = be.get('max_fails', 3)
+            fail_timeout = be.get('fail_timeout', 30)
+            backup = be.get('backup', False)
+            if not host:
+                continue
+            line = f"    server {host}:{port}"
+            params = []
+            if weight and weight != 1:
+                params.append(f"weight={weight}")
+            if max_fails:
+                params.append(f"max_fails={max_fails}")
+            if fail_timeout:
+                params.append(f"fail_timeout={fail_timeout}s")
+            if backup:
+                params.append("backup")
+            if params:
+                line += " " + " ".join(params)
+            line += ";\n"
+            upstream_block += line
+        upstream_block += "}\n"
+        conf_parts.append(upstream_block)
     
     # 主 server 块
     server_block = "server {\n"
@@ -129,7 +170,11 @@ def generate_proxy_conf(
         )
     
     # 反向代理
-    forward_url = f"{forward_scheme}://{forward_host}:{forward_port}"
+    if upstream_name:
+        forward_url = f"{forward_scheme}://{upstream_name}"
+    else:
+        forward_url = f"{forward_scheme}://{forward_host}:{forward_port}"
+    
     server_block += (
         f"\n    location / {{\n"
         f"        proxy_pass {forward_url};\n"
