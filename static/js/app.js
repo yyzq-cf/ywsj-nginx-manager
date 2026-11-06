@@ -49,6 +49,7 @@ function switchTab(tabId, btn) {
 // ============ 设置面板 ============
 function showSettings() {
     document.getElementById('settingsModal').classList.add('active');
+    loadUsername();
 }
 
 // ============ Toast 通知 ============
@@ -80,40 +81,58 @@ function reloadNginx() {
         });
 }
 
-// ============ 修改密码 ============
-function changePassword() {
+// ============ 账户设置 ============
+function loadUsername() {
+    fetch('/api/account', { method: 'GET' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.username) {
+                const el = document.getElementById('usernameInput');
+                if (el) el.value = data.username;
+            }
+        }).catch(() => {});
+}
+
+function changeAccount() {
+    const username = document.getElementById('usernameInput').value.trim();
     const newPw = document.getElementById('newPassword').value;
     const confirmPw = document.getElementById('confirmPassword').value;
     const msgEl = document.getElementById('passwordMsg');
 
-    if (newPw !== confirmPw) {
-        msgEl.innerHTML = `<span style="color: var(--error)">${i18n.t('settings.password_mismatch')}</span>`;
-        return;
-    }
-    if (newPw.length < 6) {
-        msgEl.innerHTML = `<span style="color: var(--error)">${i18n.t('settings.password_mismatch')}</span>`;
+    if (!username || username.length < 2) {
+        msgEl.innerHTML = `<span style="color: var(--error)">${i18n.t('settings.username_short')}</span>`;
         return;
     }
 
-    fetch('/api/password', {
+    const body = { username };
+    if (newPw || confirmPw) {
+        if (newPw !== confirmPw) {
+            msgEl.innerHTML = `<span style="color: var(--error)">${i18n.t('settings.password_mismatch')}</span>`;
+            return;
+        }
+        if (newPw.length < 6) {
+            msgEl.innerHTML = `<span style="color: var(--error)">${i18n.t('settings.password_mismatch')}</span>`;
+            return;
+        }
+        body.new_password = newPw;
+        body.confirm_password = confirmPw;
+    }
+
+    fetch('/api/account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ new_password: newPw, confirm_password: confirmPw }),
-    })
-        .then(r => r.json())
-        .then(r => {
-            if (r.success) {
-                msgEl.innerHTML = `<span style="color: var(--success)">${i18n.t('settings.password_changed')}</span>`;
-                document.getElementById('newPassword').value = '';
-                document.getElementById('confirmPassword').value = '';
-                setTimeout(() => {
-                    closeModal('settingsModal');
-                    msgEl.innerHTML = '';
-                }, 1500);
-            } else {
-                msgEl.innerHTML = `<span style="color: var(--error)">${r.error}</span>`;
-            }
-        });
+        body: JSON.stringify(body)
+    }).then(r => r.json()).then(data => {
+        if (data.success) {
+            msgEl.innerHTML = `<span style="color: var(--success)">✅ ${data.message}</span>`;
+            document.getElementById('newPassword').value = '';
+            document.getElementById('confirmPassword').value = '';
+        } else {
+            msgEl.innerHTML = `<span style="color: var(--error)">${data.error}</span>`;
+        }
+    }).catch(err => {
+        msgEl.innerHTML = `<span style="color: var(--error)">Error: ${err}</span>`;
+    });
 }
 
 // ============ ESC 关闭模态框 ============

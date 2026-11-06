@@ -112,7 +112,11 @@
                 </div>
                 <div class="tab-content active" id="tab-account">
                     <div class="form-section">
-                        <h4>{{ t('settings.change_password') }}</h4>
+                        <h4>{{ t('settings.change_account') }}</h4>
+                        <div class="form-group">
+                            <label>{{ t('settings.username') }}</label>
+                            <input type="text" id="usernameInput" class="form-input" placeholder="admin">
+                        </div>
                         <div class="form-group">
                             <label>{{ t('settings.new_password') }}</label>
                             <input type="password" id="newPassword" class="form-input" placeholder="••••••••">
@@ -121,7 +125,7 @@
                             <label>{{ t('settings.confirm_password') }}</label>
                             <input type="password" id="confirmPassword" class="form-input" placeholder="••••••••">
                         </div>
-                        <button class="btn btn-primary" onclick="changePassword()">{{ t('common.save') }}</button>
+                        <button class="btn btn-primary" onclick="changeAccount()">{{ t('common.save') }}</button>
                         <div id="passwordMsg" class="form-msg"></div>
                     </div>
                 </div>

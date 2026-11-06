@@ -117,10 +117,14 @@ def init_db():
             last_attempt TEXT
         );
     ''')
-    # 2FA: 添加 totp_secret 列（已有表自动迁移）
+    # 自动迁移：添加缺失的列
     cols = [r[1] for r in db.execute("PRAGMA table_info(users)").fetchall()]
     if 'totp_secret' not in cols:
         db.execute("ALTER TABLE users ADD COLUMN totp_secret TEXT")
+    if 'username' not in cols:
+        db.execute("ALTER TABLE users ADD COLUMN username TEXT")
+        # 给已有用户设置默认用户名
+        db.execute("UPDATE users SET username = 'admin' WHERE username IS NULL")
     db.commit()
 
 
@@ -233,19 +237,21 @@ def login():
         ip = request.remote_addr
 
         if pending_token:
-            # === Phase 2: TOTP 验证 ===
+            # === Phase 2: TOTP 验证（从 session 读取 pending 状态）===
             code = request.form.get('code', '').strip()
 
-            with _2fa_lock:
-                pending = _2fa_pending.get(pending_token)
-                if not pending:
-                    return render_template('login.html', error_key='login.expired', twofa_stage=False)
-                if time.time() > pending['expire']:
-                    _2fa_pending.pop(pending_token, None)
-                    return render_template('login.html', error_key='login.expired', twofa_stage=False)
-                if pending['attempts'] >= _2FA_MAX_ATTEMPTS:
-                    _2fa_pending.pop(pending_token, None)
-                    return render_template('login.html', error_key='login.locked', twofa_stage=False)
+            pending = session.pop('_2fa_pending', None)
+            if not pending or pending.get('token') != pending_token:
+                session.clear()
+                return render_template('login.html', error_key='login.expired', twofa_stage=False)
+
+            if time.time() > pending.get('expire', 0):
+                session.clear()
+                return render_template('login.html', error_key='login.expired', twofa_stage=False)
+
+            if pending.get('attempts', 0) >= _2FA_MAX_ATTEMPTS:
+                session.clear()
+                return render_template('login.html', error_key='login.locked', twofa_stage=False)
 
             db = get_db()
             user = db.execute('SELECT * FROM users WHERE id = ?', (pending['user_id'],)).fetchone()
@@ -254,43 +260,46 @@ def login():
                 totp = pyotp.TOTP(user['totp_secret'])
                 if totp.verify(code, valid_window=1):
                     # 验证成功
-                    with _2fa_lock:
-                        _2fa_pending.pop(pending_token, None)
                     session.clear()
                     session.permanent = True
                     session['user_id'] = user['id']
                     clear_attempts(ip)
                     return redirect(url_for('index'))
                 else:
-                    # 验证失败
-                    with _2fa_lock:
-                        pending['attempts'] += 1
+                    # 验证失败，保留在 2FA 阶段
+                    pending['attempts'] = pending.get('attempts', 0) + 1
+                    session['_2fa_pending'] = pending
                     return render_template('login.html', error_key='login.totp_error',
                                            pending_token=pending_token, twofa_stage=True)
             else:
+                session.clear()
                 return render_template('login.html', error_key='login.expired', twofa_stage=False)
 
         else:
-            # === Phase 1: 密码验证 ===
+            # === Phase 1: 用户名+密码验证 ===
+            username = request.form.get('username', '').strip()
             password = request.form.get('password', '')
 
             if is_locked(ip):
                 return render_template('login.html', error_key='login.locked')
 
             db = get_db()
-            user = db.execute('SELECT * FROM users LIMIT 1').fetchone()
+            user = db.execute('SELECT * FROM users WHERE username = ? OR id = 1', (username,)).fetchone()
+            if user and user.get('username') and user['username'] != username:
+                record_failed_attempt(ip)
+                return render_template('login.html', error_key='login.error')
             if user and check_password_hash(user['password_hash'], password):
                 clear_attempts(ip)
                 # 检查是否启用 2FA
                 if user['totp_secret']:
-                    # 生成 pending_token，进入 2FA 阶段
+                    # 用 session 存储 pending 状态（跨 worker 可靠）
                     token = os.urandom(16).hex()
-                    with _2fa_lock:
-                        _2fa_pending[token] = {
-                            'user_id': user['id'],
-                            'expire': time.time() + _2FA_EXPIRE,
-                            'attempts': 0,
-                        }
+                    session['_2fa_pending'] = {
+                        'token': token,
+                        'user_id': user['id'],
+                        'expire': time.time() + _2FA_EXPIRE,
+                        'attempts': 0,
+                    }
                     return render_template('login.html', pending_token=token, twofa_stage=True)
                 else:
                     # 未启用 2FA，直接登录
@@ -316,18 +325,20 @@ def setup():
         return redirect(url_for('login'))
     
     if request.method == 'POST':
+        username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
         confirm = request.form.get('confirm', '')
         
+        if not username or len(username) < 2:
+            return render_template('setup.html', error_key='setup.username_short')
         if password != confirm:
             return render_template('setup.html', error_key='setup.mismatch')
-        
         if len(password) < 6:
             return render_template('setup.html', error_key='setup.mismatch')
         
         db = get_db()
         pw_hash = generate_password_hash(password, method='scrypt')
-        db.execute('INSERT INTO users (password_hash) VALUES (?)', (pw_hash,))
+        db.execute('INSERT INTO users (username, password_hash) VALUES (?, ?)', (username, pw_hash))
         db.commit()
         
         # 初始化 nginx 和 acme
@@ -873,26 +884,39 @@ def api_logs_stats():
     return jsonify(stats)
 
 
-# ============ API: 密码修改 ============
-@app.route('/api/password', methods=['POST'])
+# ============ API: 账户设置（用户名+密码） ============
+@app.route('/api/account', methods=['GET', 'POST'])
 @login_required
-def api_change_password():
+def api_update_account():
+    if request.method == 'GET':
+        db = get_db()
+        user = db.execute('SELECT username FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+        return jsonify({'username': user['username'] if user else ''})
+
     data = request.get_json()
+    new_username = data.get('username', '').strip()
     new_password = data.get('new_password', '')
     confirm = data.get('confirm_password', '')
-    
-    if new_password != confirm:
-        return jsonify({'success': False, 'error': 'Passwords do not match'}), 400
-    
-    if len(new_password) < 6:
-        return jsonify({'success': False, 'error': 'Password too short (min 6)'}), 400
-    
+
     db = get_db()
-    pw_hash = generate_password_hash(new_password, method='scrypt')
-    db.execute('UPDATE users SET password_hash = ?', (pw_hash,))
+
+    # 更新用户名
+    if new_username:
+        if len(new_username) < 2:
+            return jsonify({'success': False, 'error': 'Username too short (min 2)'}), 400
+        db.execute('UPDATE users SET username = ? WHERE id = ?', (new_username, session['user_id']))
+
+    # 更新密码（可选）
+    if new_password or confirm:
+        if new_password != confirm:
+            return jsonify({'success': False, 'error': 'Passwords do not match'}), 400
+        if len(new_password) < 6:
+            return jsonify({'success': False, 'error': 'Password too short (min 6)'}), 400
+        pw_hash = generate_password_hash(new_password, method='scrypt')
+        db.execute('UPDATE users SET password_hash = ? WHERE id = ?', (pw_hash, session['user_id']))
+
     db.commit()
-    
-    return jsonify({'success': True, 'message': 'Password changed'})
+    return jsonify({'success': True, 'message': 'Account updated'})
 
 
 # ============ API: 2FA 管理 ============

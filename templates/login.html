@@ -164,8 +164,14 @@
             <form method="POST" action="/login" class="auth-form">
                 <div class="form-group">
                     <div class="input-icon">
+                        <i class="fas fa-user"></i>
+                        <input type="text" name="username" class="form-input" placeholder="{{ t('login.username') }}" autofocus required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="input-icon">
                         <i class="fas fa-lock"></i>
-                        <input type="password" name="password" class="form-input" placeholder="{{ t('login.password') }}" autofocus required>
+                        <input type="password" name="password" class="form-input" placeholder="{{ t('login.password') }}" required>
                     </div>
                 </div>
                 <button type="submit" class="btn btn-primary btn-block">
