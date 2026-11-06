@@ -285,7 +285,7 @@ def renew_cert(domain, key_length="ec-256"):
 
 
 def revoke_cert(domain, key_length="ec-256"):
-    """吊销证书"""
+    """吊销证书并删除本地文件"""
     ok, msg = ensure_acme()
     if not ok:
         return False, msg
@@ -293,6 +293,7 @@ def revoke_cert(domain, key_length="ec-256"):
     is_ec = key_length.startswith("ec-")
     actual_domain = domain[2:] if domain.startswith("*.") else domain
     
+    # 先吊销
     cmd = [ACME_BIN, "--revoke", "-d", actual_domain]
     if is_ec:
         cmd.append("--ecc")
@@ -301,9 +302,28 @@ def revoke_cert(domain, key_length="ec-256"):
         result = subprocess.run(
             cmd, capture_output=True, text=True, timeout=60
         )
-        return result.returncode == 0, result.stdout + result.stderr
+        revoke_ok = result.returncode == 0
     except Exception as e:
         return False, str(e)
+
+    # 删除本地证书文件
+    del_cmd = [ACME_BIN, "--remove", "-d", actual_domain]
+    if is_ec:
+        del_cmd.append("--ecc")
+    try:
+        del_result = subprocess.run(
+            del_cmd, capture_output=True, text=True, timeout=30
+        )
+    except Exception:
+        pass
+
+    # 确保目录已删除
+    cert_dir = Path(ACME_HOME) / (actual_domain + ("_ecc" if is_ec else ""))
+    if cert_dir.exists():
+        import shutil
+        shutil.rmtree(cert_dir, ignore_errors=True)
+
+    return True, "证书已删除"
 
 
 def list_certs():
