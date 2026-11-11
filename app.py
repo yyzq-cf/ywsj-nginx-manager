@@ -757,6 +757,7 @@ def api_ssl_issue():
     key_length = data.get('key_length', 'ec-256')
     test = bool(data.get('test', False))
     email = data.get('email', '').strip()
+    ca = data.get('ca')
     
     if not domain:
         return jsonify({'success': False, 'error': 'Domain required'}), 400
@@ -775,6 +776,7 @@ def api_ssl_issue():
         key_length=key_length,
         test=test,
         email=email,
+        ca=ca,
     )
     
     if ok:
