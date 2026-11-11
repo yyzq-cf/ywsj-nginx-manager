@@ -28,6 +28,22 @@ chown -R appuser:appgroup /home/appuser/.acme.sh 2>/dev/null || true
 chown appuser:appgroup /run/nginx.pid 2>/dev/null || true
 chmod -R 755 /var/log/nginx /etc/nginx/ssl /etc/nginx/conf.d
 
+# 确保 cron spool 目录存在
+mkdir -p /var/spool/cron/crontabs
+chmod 1730 /var/spool/cron/crontabs
+chown root:crontab /var/spool/cron/crontabs 2>/dev/null || true
+
+# 为 appuser 安装 acme.sh cron (每天 3:00 UTC 续期检查)
+ACME_BIN="/home/appuser/.acme.sh/acme.sh"
+if [ -x "$ACME_BIN" ]; then
+    su -s /bin/bash appuser -c "$ACME_BIN --install-cronjob --home /home/appuser/.acme.sh" 2>/dev/null || true
+    echo "[entrypoint] acme.sh cron installed"
+fi
+
+# 启动 cron 守护进程 (SSL 自动续期)
+echo "[entrypoint] Starting cron daemon..."
+cron
+
 # 启动 Flask
 if [ "$(id -u)" = '0' ]; then
     echo "[entrypoint] Starting Flask as appuser..."
