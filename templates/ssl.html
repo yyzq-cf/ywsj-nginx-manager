@@ -77,6 +77,14 @@
                 <div style="font-size:0.8rem;color:var(--muted);margin-top:4px">{{ t('ssl.email_hint') }}</div>
             </div>
             <div class="form-group">
+                <label>{{ t('ssl.ca') }}</label>
+                <select id="sslCa" class="form-select">
+                    <option value="letsencrypt">Let's Encrypt</option>
+                    <option value="zerossl">ZeroSSL</option>
+                </select>
+                <div style="font-size:0.8rem;color:var(--muted);margin-top:4px">{{ t('ssl.ca_hint') }}</div>
+            </div>
+            <div class="form-group">
                 <label>{{ t('ssl.dns_provider') }}</label>
                 <select id="dnsProvider" class="form-select" onchange="toggleDnsFields()">
                     <option value="">{{ t('ssl.dns_provider_none') }}</option>
@@ -268,6 +276,7 @@ function issueCertificate() {
     const data = {
         domain: document.getElementById('sslDomain').value.trim(),
         email: document.getElementById('sslEmail').value.trim(),
+        ca: document.getElementById('sslCa').value,
         dns_provider: document.getElementById('dnsProvider').value || null,
         dns_api_key: document.getElementById('dnsApiKey').value || null,
         dns_api_secret: document.getElementById('dnsApiSecret').value || null,
@@ -347,7 +356,6 @@ function viewCert(domain) {
                 document.getElementById('dnsCredBox').style.display = 'none';
             }
         });
-}
 
 function reissueCert() {
     const btn = document.getElementById('reissueBtn');
@@ -384,6 +392,7 @@ function reissueCert() {
         dns_api_secret: document.getElementById('reissueDnsSecret').value,
         key_length: 'ec-256',
         test: document.getElementById('reissueTestMode').checked,
+        ca: document.getElementById('sslCa') ? document.getElementById('sslCa').value : 'letsencrypt',
     };
     fetch('/api/ssl/issue', {
         method: 'POST',
@@ -411,6 +420,7 @@ function reissueCert() {
         if (progressEl.parentNode) progressEl.remove();
         msgEl.innerHTML = '<span style="color:var(--error)">Network error: ' + err + '</span>';
     });
+}
 }
 
 function copyText(elementId) {
