@@ -85,6 +85,7 @@ def issue_cert(
     key_length="ec-256",
     test=False,
     email=None,
+    ca=None,
 ):
     """申请 SSL 证书
     
@@ -104,6 +105,16 @@ def issue_cert(
     ok, msg = ensure_acme()
     if not ok:
         return False, msg, None, None
+    
+    # 设置 CA (Let's Encrypt / ZeroSSL)
+    if ca:
+        try:
+            subprocess.run(
+                [ACME_BIN, "--set-default-ca", "--server", ca],
+                capture_output=True, text=True, timeout=15
+            )
+        except Exception:
+            pass
     
     # 注册账户邮箱 (acme.sh 需要)
     if email:
