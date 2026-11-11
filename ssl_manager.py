@@ -239,6 +239,7 @@ def install_cert(domain, key_length="ec-256"):
         "--fullchainpath", install_cert_path,
         "--keypath", install_key_path,
         "--ecc" if is_ec else "",
+        "--reloadcmd", "sudo nginx -s reload",
     ]
     cmd = [c for c in cmd if c]  # 去空
     
