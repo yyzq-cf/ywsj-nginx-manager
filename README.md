@@ -30,19 +30,13 @@ services:
       - "5400:5000"
     volumes:
       - ./data:/data
-      - nginx-conf:/etc/nginx/conf.d
-      - nginx-ssl:/etc/nginx/ssl
-      - nginx-logs:/var/log/nginx
-      - acme-data:/root/.acme.sh
+      - ./conf.d:/etc/nginx/conf.d
+      - ./ssl:/etc/nginx/ssl
+      - ./logs:/var/log/nginx
+      - ./acme.sh:/home/appuser/.acme.sh
     environment:
-      - SECRET_KEY=change...to...random...string
+      - SECRET_KEY=change...random...string
     restart: always
-
-volumes:
-  nginx-conf:
-  nginx-ssl:
-  nginx-logs:
-  acme-data:
 ```
 
 ```bash
