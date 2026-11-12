@@ -31,7 +31,7 @@ from nginx_manager import (
 )
 from ssl_manager import (
     issue_cert, renew_cert, revoke_cert, list_certs, get_cert_info,
-    ensure_acme, setup_cron_renew,
+    ensure_acme, setup_cron_renew, DNS_PROVIDERS,
 )
 
 # ============ 配置 ============
@@ -766,6 +766,8 @@ def api_ssl_issue():
     is_wildcard = domain.startswith('*.')
     if is_wildcard and not dns_provider:
         return jsonify({'success': False, 'error': 'Wildcard domains require DNS API verification'}), 400
+    if dns_provider and dns_provider not in DNS_PROVIDERS:
+        return jsonify({'success': False, 'error': 'Unsupported DNS provider'}), 400
     
     ok, msg, cert_path, key_path = issue_cert(
         domain=domain,
@@ -851,32 +853,24 @@ def api_ssl_content(domain):
             account_conf = os.path.join('/home/appuser/.acme.sh', 'account.conf')
             if os.path.exists(account_conf):
                 try:
+                    saved = {}
                     with open(account_conf, 'r') as f:
                         for line in f:
                             line = line.strip()
-                            # SAVED_CF_Token='xxx'
-                            if line.startswith("SAVED_CF_Token="):
-                                token = line.split("=", 1)[1].strip("'\"")
-                                result['dns_provider'] = 'dns_cf'
-                                result['dns_api_key'] = token or None
-                            elif line.startswith("SAVED_CF_Account_ID="):
-                                acid = line.split("=", 1)[1].strip("'\"")
-                                if acid:
-                                    result['dns_api_secret'] = acid
-                            elif line.startswith("SAVED_DP_Id="):
-                                token = line.split("=", 1)[1].strip("'\"")
-                                result['dns_provider'] = 'dns_dp'
-                                result['dns_api_key'] = token or None
-                            elif line.startswith("SAVED_DP_Key="):
-                                token = line.split("=", 1)[1].strip("'\"")
-                                result['dns_api_secret'] = token
-                            elif line.startswith("SAVED_Ali_Key="):
-                                token = line.split("=", 1)[1].strip("'\"")
-                                result['dns_provider'] = 'dns_ali'
-                                result['dns_api_key'] = token or None
-                            elif line.startswith("SAVED_Ali_Secret="):
-                                token = line.split("=", 1)[1].strip("'\"")
-                                result['dns_api_secret'] = token
+                            if not line.startswith('SAVED_') or '=' not in line:
+                                continue
+                            name, value = line.split('=', 1)
+                            saved[name[len('SAVED_'):]] = value.strip("'\"")
+                    for provider, spec in DNS_PROVIDERS.items():
+                        key_val = saved.get(spec['key'])
+                        if not key_val:
+                            continue
+                        result['dns_provider'] = provider
+                        result['dns_api_key'] = key_val
+                        secret_name = spec.get('secret')
+                        if secret_name and saved.get(secret_name):
+                            result['dns_api_secret'] = saved[secret_name]
+                        break
                 except Exception:
                     pass
             return jsonify(result)

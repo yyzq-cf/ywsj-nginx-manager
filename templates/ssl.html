@@ -88,9 +88,29 @@
                 <label>{{ t('ssl.dns_provider') }}</label>
                 <select id="dnsProvider" class="form-select" onchange="toggleDnsFields()">
                     <option value="">{{ t('ssl.dns_provider_none') }}</option>
-                    <option value="dns_cf">{{ t('ssl.dns_provider_cf') }}</option>
-                    <option value="dns_dp">{{ t('ssl.dns_provider_dp') }}</option>
-                    <option value="dns_ali">{{ t('ssl.dns_provider_ali') }}</option>
+                    <optgroup label="{{ t('ssl.dns_group_cn') }}">
+                        <option value="dns_ali">{{ t('ssl.dns_provider_ali') }}</option>
+                        <option value="dns_tencent">{{ t('ssl.dns_provider_tencent') }}</option>
+                        <option value="dns_dp">{{ t('ssl.dns_provider_dp') }}</option>
+                        <option value="dns_west_cn">{{ t('ssl.dns_provider_west') }}</option>
+                        <option value="dns_volcengine">{{ t('ssl.dns_provider_volc') }}</option>
+                        <option value="dns_baidu">{{ t('ssl.dns_provider_baidu') }}</option>
+                    </optgroup>
+                    <optgroup label="{{ t('ssl.dns_group_intl') }}">
+                        <option value="dns_cf">{{ t('ssl.dns_provider_cf') }}</option>
+                        <option value="dns_aws">{{ t('ssl.dns_provider_aws') }}</option>
+                        <option value="dns_gd">{{ t('ssl.dns_provider_gd') }}</option>
+                        <option value="dns_namecheap">{{ t('ssl.dns_provider_namecheap') }}</option>
+                        <option value="dns_namecom">{{ t('ssl.dns_provider_namecom') }}</option>
+                        <option value="dns_porkbun">{{ t('ssl.dns_provider_porkbun') }}</option>
+                        <option value="dns_dgon">{{ t('ssl.dns_provider_do') }}</option>
+                        <option value="dns_vultr">{{ t('ssl.dns_provider_vultr') }}</option>
+                        <option value="dns_linode_v4">{{ t('ssl.dns_provider_linode') }}</option>
+                        <option value="dns_hetznercloud">{{ t('ssl.dns_provider_hetzner') }}</option>
+                        <option value="dns_gcore">{{ t('ssl.dns_provider_gcore') }}</option>
+                        <option value="dns_he">{{ t('ssl.dns_provider_he') }}</option>
+                        <option value="dns_desec">{{ t('ssl.dns_provider_desec') }}</option>
+                    </optgroup>
                 </select>
             </div>
             <div id="dnsFields" style="display:none">
@@ -159,9 +179,29 @@
                     <div class="form-group">
                         <label>{{ t('ssl.dns_provider') }}</label>
                         <select id="reissueDnsProvider" class="form-select">
-                            <option value="dns_cf">{{ t('ssl.dns_provider_cf') }}</option>
-                            <option value="dns_dp">{{ t('ssl.dns_provider_dp') }}</option>
-                            <option value="dns_ali">{{ t('ssl.dns_provider_ali') }}</option>
+                            <optgroup label="{{ t('ssl.dns_group_cn') }}">
+                                <option value="dns_ali">{{ t('ssl.dns_provider_ali') }}</option>
+                                <option value="dns_tencent">{{ t('ssl.dns_provider_tencent') }}</option>
+                                <option value="dns_dp">{{ t('ssl.dns_provider_dp') }}</option>
+                                <option value="dns_west_cn">{{ t('ssl.dns_provider_west') }}</option>
+                                <option value="dns_volcengine">{{ t('ssl.dns_provider_volc') }}</option>
+                                <option value="dns_baidu">{{ t('ssl.dns_provider_baidu') }}</option>
+                            </optgroup>
+                            <optgroup label="{{ t('ssl.dns_group_intl') }}">
+                                <option value="dns_cf">{{ t('ssl.dns_provider_cf') }}</option>
+                                <option value="dns_aws">{{ t('ssl.dns_provider_aws') }}</option>
+                                <option value="dns_gd">{{ t('ssl.dns_provider_gd') }}</option>
+                                <option value="dns_namecheap">{{ t('ssl.dns_provider_namecheap') }}</option>
+                                <option value="dns_namecom">{{ t('ssl.dns_provider_namecom') }}</option>
+                                <option value="dns_porkbun">{{ t('ssl.dns_provider_porkbun') }}</option>
+                                <option value="dns_dgon">{{ t('ssl.dns_provider_do') }}</option>
+                                <option value="dns_vultr">{{ t('ssl.dns_provider_vultr') }}</option>
+                                <option value="dns_linode_v4">{{ t('ssl.dns_provider_linode') }}</option>
+                                <option value="dns_hetznercloud">{{ t('ssl.dns_provider_hetzner') }}</option>
+                                <option value="dns_gcore">{{ t('ssl.dns_provider_gcore') }}</option>
+                                <option value="dns_he">{{ t('ssl.dns_provider_he') }}</option>
+                                <option value="dns_desec">{{ t('ssl.dns_provider_desec') }}</option>
+                            </optgroup>
                         </select>
                     </div>
                     <div class="form-group">
@@ -225,14 +265,101 @@ function toggleDnsFields() {
             keyLink: 'https://console.dnspod.cn/account/token/token',
             secret: '📋 Token → DNSPod → 账户中心 → API 密钥',
             secretLink: 'https://console.dnspod.cn/account/token/token',
-            secretOptional: false,
         },
         'dns_ali': {
             key: '📋 AccessKey ID → 阿里云 → AccessKey 管理',
             keyLink: 'https://ram.console.aliyun.com/manage/ak',
             secret: '📋 AccessKey Secret → 阿里云 → AccessKey 管理',
             secretLink: 'https://ram.console.aliyun.com/manage/ak',
-            secretOptional: false,
+        },
+        'dns_tencent': {
+            key: '📋 SecretId → 腾讯云 → 访问管理 → API 密钥',
+            keyLink: 'https://console.cloud.tencent.com/cam/capi',
+            secret: '📋 SecretKey → 腾讯云 → 访问管理 → API 密钥',
+            secretLink: 'https://console.cloud.tencent.com/cam/capi',
+        },
+        'dns_west_cn': {
+            key: '📋 用户名 → 西部数码 → API 设置',
+            keyLink: 'https://www.west.cn/manager/API/APIconfig.asp',
+            secret: '📋 API Key → 西部数码 → API 设置',
+            secretLink: 'https://www.west.cn/manager/API/APIconfig.asp',
+        },
+        'dns_volcengine': {
+            key: '📋 Access Key ID → 火山引擎 → 密钥管理',
+            keyLink: 'https://console.volcengine.com/iam/keymanage/',
+            secret: '📋 Secret Access Key → 火山引擎 → 密钥管理',
+            secretLink: 'https://console.volcengine.com/iam/keymanage/',
+        },
+        'dns_baidu': {
+            key: '📋 AccessKey ID → 百度云 → 安全认证 → Access Key',
+            keyLink: 'https://console.bce.baidu.com/iam/#/iam/accesslist',
+            secret: '📋 Secret Access Key → 百度云 → 安全认证 → Access Key',
+            secretLink: 'https://console.bce.baidu.com/iam/#/iam/accesslist',
+        },
+        'dns_namecheap': {
+            key: '📋 API Key → Namecheap → Profile → Tools → API Access',
+            keyLink: 'https://ap.www.namecheap.com/settings/tools/apiaccess/',
+            secret: '📋 Username → Namecheap 账户用户名',
+        },
+        'dns_gd': {
+            key: '📋 API Key → GoDaddy → Developer → API Keys',
+            keyLink: 'https://developer.godaddy.com/keys',
+            secret: '📋 API Secret → GoDaddy → Developer → API Keys',
+            secretLink: 'https://developer.godaddy.com/keys',
+        },
+        'dns_namecom': {
+            key: '📋 Username → Name.com 账户用户名',
+            keyLink: 'https://www.name.com/account/settings/api',
+            secret: '📋 API Token → Name.com → Account → Security → API Token',
+            secretLink: 'https://www.name.com/account/settings/api',
+        },
+        'dns_porkbun': {
+            key: '📋 API Key → Porkbun → Account → API Access',
+            keyLink: 'https://porkbun.com/account/api',
+            secret: '📋 Secret API Key → Porkbun → Account → API Access',
+            secretLink: 'https://porkbun.com/account/api',
+        },
+        'dns_aws': {
+            key: '📋 Access Key ID → AWS IAM → Security credentials',
+            keyLink: 'https://console.aws.amazon.com/iam/home#/security_credentials',
+            secret: '📋 Secret Access Key → AWS IAM → Security credentials',
+            secretLink: 'https://console.aws.amazon.com/iam/home#/security_credentials',
+        },
+        'dns_dgon': {
+            key: '📋 API Token → DigitalOcean → API → Tokens (需写权限)',
+            keyLink: 'https://cloud.digitalocean.com/account/api/tokens',
+            secret: '',
+        },
+        'dns_vultr': {
+            key: '📋 API Key → Vultr → Account → API',
+            keyLink: 'https://my.vultr.com/settings/#settingsapi',
+            secret: '',
+        },
+        'dns_linode_v4': {
+            key: '📋 Personal Access Token → Linode → API Tokens',
+            keyLink: 'https://cloud.linode.com/profile/tokens',
+            secret: '',
+        },
+        'dns_hetznercloud': {
+            key: '📋 API Token → Hetzner Cloud → Security → API Tokens',
+            keyLink: 'https://console.hetzner.cloud/',
+            secret: '',
+        },
+        'dns_gcore': {
+            key: '📋 API Key → Gcore → API Tokens',
+            keyLink: 'https://accounts.gcore.com/reports/api-tokens',
+            secret: '',
+        },
+        'dns_he': {
+            key: '📋 Username → Hurricane Electric 账户邮箱',
+            keyLink: 'https://dns.he.net/',
+            secret: '📋 Password → Hurricane Electric 账户密码',
+            secretLink: 'https://dns.he.net/',
+        },
+        'dns_desec': {
+            key: '📋 API Token → deSEC → Tokens',
+            keyLink: 'https://desec.io/tokens',
+            secret: '',
         },
     };
     
@@ -241,12 +368,18 @@ function toggleDnsFields() {
         keyHint.innerHTML = h.keyLink 
             ? `${h.key} <a href="${h.keyLink}" target="_blank" style="color:var(--accent)">{{ t('ssl.get_key') }} →</a>`
             : h.key;
-        if (h.secretOptional) {
+        if (h.secret === '') {
+            secretLabel.parentElement.style.display = 'none';
+            document.getElementById('dnsApiSecret').value = '';
+            secretHint.textContent = '';
+        } else if (h.secretOptional) {
+            secretLabel.parentElement.style.display = '';
             secretLabel.textContent = "{{ t('ssl.dns_api_secret') }} (可选)";
             secretHint.innerHTML = h.secretLink
                 ? `${h.secret} <a href="${h.secretLink}" target="_blank" style="color:var(--accent)">→</a>`
                 : h.secret;
         } else {
+            secretLabel.parentElement.style.display = '';
             secretLabel.textContent = "{{ t('ssl.dns_api_secret') }} *";
             secretHint.innerHTML = h.secretLink
                 ? `${h.secret} <a href="${h.secretLink}" target="_blank" style="color:var(--accent)">{{ t('ssl.get_key') }} →</a>`

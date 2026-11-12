@@ -18,6 +18,108 @@ SSL_INSTALL_DIR = "/etc/nginx/ssl"
 # acme.sh 默认 CA (Let's Encrypt)
 DEFAULT_CA = "letsencrypt"
 
+# DNS 提供商 → acme.sh 环境变量。
+# key / secret 对应面板两个输入框；secret 为空表示只需一个凭证。
+# saved 是 account.conf 里 SAVED_<name> 的前缀，申请前要清掉，避免旧凭证残留。
+DNS_PROVIDERS = {
+    "dns_cf": {
+        "key": "CF_Token",
+        "secret": "CF_Account_ID",
+        "secret_optional": True,
+        "saved": "CF_",
+    },
+    "dns_dp": {
+        "key": "DP_Id",
+        "secret": "DP_Key",
+        "saved": "DP_",
+    },
+    "dns_ali": {
+        "key": "Ali_Key",
+        "secret": "Ali_Secret",
+        "saved": "Ali_",
+    },
+    "dns_tencent": {
+        "key": "Tencent_SecretId",
+        "secret": "Tencent_SecretKey",
+        "saved": "Tencent_",
+    },
+    "dns_west_cn": {
+        "key": "WEST_Username",
+        "secret": "WEST_Key",
+        "saved": "WEST_",
+    },
+    "dns_volcengine": {
+        "key": "Volcengine_ACCESS_KEY_ID",
+        "secret": "Volcengine_SECRET_ACCESS_KEY",
+        "saved": "Volcengine_",
+    },
+    "dns_baidu": {
+        "key": "Baidu_AK",
+        "secret": "Baidu_SK",
+        "saved": "Baidu_",
+    },
+    "dns_namecheap": {
+        "key": "NAMECHEAP_API_KEY",
+        "secret": "NAMECHEAP_USERNAME",
+        "saved": "NAMECHEAP_",
+    },
+    "dns_gd": {
+        "key": "GD_Key",
+        "secret": "GD_Secret",
+        "saved": "GD_",
+    },
+    "dns_namecom": {
+        "key": "Namecom_Username",
+        "secret": "Namecom_Token",
+        "saved": "Namecom_",
+    },
+    "dns_porkbun": {
+        "key": "PORKBUN_API_KEY",
+        "secret": "PORKBUN_SECRET_API_KEY",
+        "saved": "PORKBUN_",
+    },
+    "dns_aws": {
+        "key": "AWS_ACCESS_KEY_ID",
+        "secret": "AWS_SECRET_ACCESS_KEY",
+        "saved": "AWS_",
+    },
+    "dns_dgon": {
+        "key": "DO_API_KEY",
+        "secret": None,
+        "saved": "DO_",
+    },
+    "dns_vultr": {
+        "key": "VULTR_API_KEY",
+        "secret": None,
+        "saved": "VULTR_",
+    },
+    "dns_linode_v4": {
+        "key": "LINODE_V4_API_KEY",
+        "secret": None,
+        "saved": "LINODE_",
+    },
+    "dns_hetznercloud": {
+        "key": "HETZNER_TOKEN",
+        "secret": None,
+        "saved": "HETZNER_",
+    },
+    "dns_gcore": {
+        "key": "GCORE_Key",
+        "secret": None,
+        "saved": "GCORE_",
+    },
+    "dns_he": {
+        "key": "HE_Username",
+        "secret": "HE_Password",
+        "saved": "HE_",
+    },
+    "dns_desec": {
+        "key": "DEDYN_TOKEN",
+        "secret": None,
+        "saved": "DEDYN_",
+    },
+}
+
 
 def ensure_acme():
     """确保 acme.sh 已安装"""
@@ -135,7 +237,7 @@ def issue_cert(
                 lines = f.readlines()
             with open(account_conf, 'w') as f:
                 for line in lines:
-                    if not _re.match(r'^SAVED_(CF_|DP_|Ali_)', line):
+                    if not _re.match(r'^SAVED_[A-Za-z0-9_]+', line):
                         f.write(line)
         except Exception:
             pass
@@ -176,25 +278,17 @@ def issue_cert(
     
     # 环境变量传递 DNS API 凭证
     env = {**os.environ}
-    if dns_provider and dns_api_key:
-        # 根据 provider 设置对应环境变量
-        if dns_provider == "dns_cf":
-            # Cloudflare: CF_Token (API Token) 必填, CF_Account_ID 可选
-            env["CF_Token"] = dns_api_key
-            if dns_api_secret:
-                env["CF_Account_ID"] = dns_api_secret
-        elif dns_provider == "dns_dp":
-            env["DP_Id"] = dns_api_key
-            env["DP_Key"] = dns_api_secret
-        elif dns_provider == "dns_ali":
-            env["Ali_Key"] = dns_api_key
-            env["Ali_Secret"] = dns_api_secret
+    spec = DNS_PROVIDERS.get(dns_provider) if dns_provider else None
+    if spec and dns_api_key:
+        env[spec["key"]] = dns_api_key
+        if spec.get("secret") and dns_api_secret:
+            env[spec["secret"]] = dns_api_secret
     
     try:
         mode = 'standalone' if standalone else 'dns' if dns_provider else 'webroot'
         logger.info(f"Issuing cert for {domain}, mode: {mode}")
         if dns_provider:
-            logger.info(f"DNS provider: {dns_provider}, CF_Token set: {'CF_Token' in env}, CF_Account_ID set: {'CF_Account_ID' in env}")
+            logger.info(f"DNS provider: {dns_provider}, known: {bool(spec)}, key set: {bool(dns_api_key)}")
         logger.info(f"acme.sh cmd: {ACME_BIN} {' '.join(cmd)}")
         result = subprocess.run(
             cmd, capture_output=True, text=True, timeout=300, env=env
