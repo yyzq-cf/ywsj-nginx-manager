@@ -50,11 +50,11 @@ docker run -d \
   --name nginx-manager \
   -p 80:80 -p 443:443 -p 5400:5000 \
   -v ./data:/data \
-  -v nginx-conf:/etc/nginx/conf.d \
-  -v nginx-ssl:/etc/nginx/ssl \
-  -v nginx-logs:/var/log/nginx \
-  -v acme-data:/root/.acme.sh \
-  -e SECRET_KEY=change...to...random...string \
+  -v ./conf.d:/etc/nginx/conf.d \
+  -v ./ssl:/etc/nginx/ssl \
+  -v ./logs:/var/log/nginx \
+  -v ./acme.sh:/home/appuser/.acme.sh \
+  -e SECRET_KEY=change...random...string \
   --restart always \
   ywsj/nginx-manager:latest
 ```
