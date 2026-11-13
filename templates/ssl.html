@@ -115,13 +115,19 @@
             </div>
             <div id="dnsFields" style="display:none">
                 <div class="form-group">
-                    <label id="dnsApiKeyLabel">{{ t('ssl.dns_api_key') }} *</label>
-                    <input type="text" id="dnsApiKey" class="form-input">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                        <label id="dnsApiKeyLabel" style="margin-bottom:0;">{{ t('ssl.dns_api_key') }} *</label>
+                        <button type="button" class="btn btn-sm btn-ghost" onclick="toggleSecretVisibility('dnsApiKey', this)" style="padding:2px 8px;font-size:0.75rem;"><i class="fas fa-eye-slash"></i> 隐藏</button>
+                    </div>
+                    <input type="password" id="dnsApiKey" class="form-input">
                     <div id="dnsApiKeyHint" style="font-size:0.8rem;color:var(--muted);margin-top:4px"></div>
                 </div>
                 <div class="form-group">
-                    <label id="dnsApiSecretLabel">{{ t('ssl.dns_api_secret') }}</label>
-                    <input type="text" id="dnsApiSecret" class="form-input">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                        <label id="dnsApiSecretLabel" style="margin-bottom:0;">{{ t('ssl.dns_api_secret') }}</label>
+                        <button type="button" class="btn btn-sm btn-ghost" onclick="toggleSecretVisibility('dnsApiSecret', this)" style="padding:2px 8px;font-size:0.75rem;"><i class="fas fa-eye-slash"></i> 隐藏</button>
+                    </div>
+                    <input type="password" id="dnsApiSecret" class="form-input">
                     <div id="dnsApiSecretHint" style="font-size:0.8rem;color:var(--muted);margin-top:4px"></div>
                 </div>
             </div>
@@ -205,12 +211,18 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>{{ t('ssl.dns_api_key') }}</label>
-                        <input type="text" id="reissueDnsKey" class="form-input">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                            <label style="margin-bottom:0;">{{ t('ssl.dns_api_key') }}</label>
+                            <button type="button" class="btn btn-sm btn-ghost" onclick="toggleSecretVisibility('reissueDnsKey', this)" style="padding:2px 8px;font-size:0.75rem;"><i class="fas fa-eye-slash"></i> 隐藏</button>
+                        </div>
+                        <input type="password" id="reissueDnsKey" class="form-input">
                     </div>
                     <div class="form-group">
-                        <label>{{ t('ssl.dns_api_secret') }}</label>
-                        <input type="text" id="reissueDnsSecret" class="form-input">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                            <label style="margin-bottom:0;">{{ t('ssl.dns_api_secret') }}</label>
+                            <button type="button" class="btn btn-sm btn-ghost" onclick="toggleSecretVisibility('reissueDnsSecret', this)" style="padding:2px 8px;font-size:0.75rem;"><i class="fas fa-eye-slash"></i> 隐藏</button>
+                        </div>
+                        <input type="password" id="reissueDnsSecret" class="form-input">
                     </div>
                     <div class="checkbox-group">
                         <label class="checkbox"><input type="checkbox" id="reissueTestMode"> {{ t('ssl.test_mode') }}</label>
@@ -560,7 +572,20 @@ function copyText(elementId) {
     const el = document.getElementById(elementId);
     el.select();
     document.execCommand('copy');
-    showToast('{{ t("ssl.copied") }}', 'success');
+    showToast('已复制到剪贴板', 'success');
+}
+
+function toggleSecretVisibility(elementId, btn) {
+    const input = document.getElementById(elementId);
+    if (!input) return;
+    const icon = btn.querySelector('i');
+    if (input.type === 'password') {
+        input.type = 'text';
+        if (icon) { icon.className = 'fas fa-eye'; btn.innerHTML = '<i class="fas fa-eye"></i> 显示'; }
+    } else {
+        input.type = 'password';
+        if (icon) { icon.className = 'fas fa-eye-slash'; btn.innerHTML = '<i class="fas fa-eye-slash"></i> 隐藏'; }
+    }
 }
 </script>
 {% endblock %}
