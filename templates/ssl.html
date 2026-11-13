@@ -35,6 +35,9 @@
                         <button class="btn btn-sm btn-ghost" onclick="viewCert('{{ cert.domain }}')" title="{{ t('common.edit') }}">
                             <i class="fas fa-eye"></i>
                         </button>
+                        <button class="btn btn-sm btn-ghost" onclick="downloadCert('{{ cert.domain }}')" title="下载证书到本地">
+                            <i class="fas fa-download"></i>
+                        </button>
                         <button class="btn btn-sm btn-ghost" onclick="renewCert('{{ cert.domain }}')" title="{{ t('ssl.renew') }}">
                             <i class="fas fa-rotate"></i>
                         </button>
@@ -461,6 +464,19 @@ function viewCert(domain) {
     document.getElementById('certPathInput').value = '';
     document.getElementById('keyPathInput').value = '';
     
+    // 动态在 modal-header 或合适位置插入下载按钮（如果还没有的话）
+    let headerActions = document.querySelector('#certViewModal .modal-header-actions');
+    if (!headerActions) {
+        const modalHeader = document.querySelector('#certViewModal .modal-header');
+        headerActions = document.createElement('div');
+        headerActions.className = 'modal-header-actions';
+        headerActions.style.cssText = 'display:flex;align-items:center;gap:8px;margin-left:auto;margin-right:12px;';
+        headerActions.innerHTML = `<button class="btn btn-sm btn-primary" onclick="downloadCert('${domain}')"><i class="fas fa-download"></i> 下载到本地 (ZIP)</button>`;
+        modalHeader.insertBefore(headerActions, modalHeader.querySelector('.modal-close'));
+    } else {
+        headerActions.innerHTML = `<button class="btn btn-sm btn-primary" onclick="downloadCert('${domain}')"><i class="fas fa-download"></i> 下载到本地 (ZIP)</button>`;
+    }
+    
     // 重置 tab 到第一个
     document.querySelectorAll('#certViewModal .tab').forEach((t,i) => t.classList.toggle('active', i===0));
     document.querySelectorAll('#certViewModal .tab-content').forEach((c,i) => c.classList.toggle('active', i===0));
@@ -566,6 +582,10 @@ function reissueCert() {
         msgEl.innerHTML = '<span style="color:var(--error)">Network error: ' + err + '</span>';
     });
 }
+}
+
+function downloadCert(domain) {
+    window.location.href = `/api/ssl/${encodeURIComponent(domain)}/download`;
 }
 
 function copyText(elementId) {

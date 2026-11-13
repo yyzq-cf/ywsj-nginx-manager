@@ -15,7 +15,7 @@ from pathlib import Path
 
 from flask import (
     Flask, render_template, request, redirect, url_for,
-    session, jsonify, make_response, g, flash
+    session, jsonify, make_response, g, flash, send_file
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 import pyotp
@@ -826,9 +826,47 @@ def api_ssl_info(domain):
     return jsonify({'error': 'Not found'}), 404
 
 
-@app.route('/api/ssl/<domain>/content')
+@app.route('/api/ssl/<domain>/download')
 @login_required
-def api_ssl_content(domain):
+def api_ssl_download(domain):
+    """打包下载指定域名的证书(.cer/.pem)和密钥(.key)"""
+    import io, zipfile
+    certs = list_certs()
+    cert_path, key_path = None, None
+    for cert in certs:
+        if cert['domain'] == domain:
+            cert_path = cert.get('installed_cer')
+            key_path = cert.get('installed_key')
+            break
+    
+    if not cert_path or not os.path.exists(cert_path):
+        # 尝试从 acme.sh 目录直接找
+        acme_dir = os.path.join('/home/appuser/.acme.sh', f"{domain}_ecc")
+        if not os.path.exists(acme_dir):
+            acme_dir = os.path.join('/home/appuser/.acme.sh', domain)
+        if os.path.exists(acme_dir):
+            for f in os.listdir(acme_dir):
+                if f.endswith('.cer') or f.endswith('.fullchain.cer'):
+                    cert_path = os.path.join(acme_dir, f)
+                elif f.endswith('.key'):
+                    key_path = os.path.join(acme_dir, f)
+
+    if not cert_path or not os.path.exists(cert_path):
+        return jsonify({'error': '证书文件不存在'}), 404
+
+    memory_file = io.BytesIO()
+    with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
+        zf.write(cert_path, arcname=f"{domain}.cer")
+        if key_path and os.path.exists(key_path):
+            zf.write(key_path, arcname=f"{domain}.key")
+            
+    memory_file.seek(0)
+    return send_file(
+        memory_file,
+        mimetype='application/zip',
+        as_attachment=True,
+        download_name=f"{domain}_ssl_cert.zip"
+    )
     """获取证书和密钥的文本内容 + DNS 凭证"""
     certs = list_certs()
     for cert in certs:
