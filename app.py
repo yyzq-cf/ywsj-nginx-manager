@@ -53,6 +53,13 @@ logger = logging.getLogger('ywsj-nginx-manager')
 # i18n
 init_i18n(app)
 
+# 全局模板上下文变量
+@app.context_processor
+def inject_global_vars():
+    return {
+        'version': APP_VERSION
+    }
+
 # ============ 2FA 全局状态 ============
 _2fa_pending = {}   # {pending_token: {user_id, expire, attempts}}
 _2fa_lock = threading.Lock()
