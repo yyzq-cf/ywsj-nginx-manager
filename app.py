@@ -867,6 +867,9 @@ def api_ssl_download(domain):
         as_attachment=True,
         download_name=f"{domain}_ssl_cert.zip"
     )
+@app.route('/api/ssl/<domain>/content')
+@login_required
+def api_ssl_content(domain):
     """获取证书和密钥的文本内容 + DNS 凭证"""
     certs = list_certs()
     for cert in certs:
@@ -878,7 +881,8 @@ def api_ssl_download(domain):
                 'cert_path': cert.get('installed_cer'),
                 'key_path': cert.get('installed_key'),
                 'dns_provider': None,
-                'dns_api_key_masked': None,
+                'dns_api_key': None,
+                'dns_api_secret': None,
             }
             # 读证书
             if cert.get('installed_cer') and os.path.exists(cert['installed_cer']):
@@ -920,11 +924,6 @@ def api_ssl_download(domain):
                     pass
             return jsonify(result)
     return jsonify({'error': 'Not found'}), 404
-
-
-# ============ API: 日志 ============
-@app.route('/api/logs/access')
-@login_required
 def api_logs_access():
     lines = int(request.args.get('lines', 100))
     logs = parse_access_log(lines=lines)
