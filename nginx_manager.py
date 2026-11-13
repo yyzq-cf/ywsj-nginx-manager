@@ -268,16 +268,26 @@ def save_conf(domain, conf_content, conf_type="proxy"):
 
 def delete_conf(domain, conf_type="proxy"):
     """删除配置文件"""
-    safe_name = re.sub(r'[^a-zA-Z0-9._-]', '_', domain)
-    filename = f"{safe_name}.conf"
     if conf_type == "stream":
-        filename = f"stream_{safe_name}.conf"
+        filename = domain if domain.endswith('.conf') else f"{domain}.conf"
+        if not filename.startswith('stream_'):
+            filename = f"stream_{filename}"
+    else:
+        safe_name = re.sub(r'[^a-zA-Z0-9._-]', '_', domain)
+        filename = f"{safe_name}.conf"
     
     filepath = os.path.join(NGINX_CONF_DIR, filename)
     if os.path.exists(filepath):
         os.remove(filepath)
         logger.info(f"Config deleted: {filepath}")
         return True
+    
+    # 兜底：直接按传入的名字删
+    filepath_alt = os.path.join(NGINX_CONF_DIR, domain)
+    if os.path.exists(filepath_alt):
+        os.remove(filepath_alt)
+        return True
+        
     return False
 
 
