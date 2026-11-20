@@ -39,8 +39,14 @@
             {% if stats and stats.top_ips %}
             <table class="table table-sm">
                 <tbody>
-                    {% for ip, count in stats.top_ips.items() %}
-                    <tr><td class="mono">{{ ip }}</td><td class="text-right"><strong>{{ count }}</strong></td></tr>
+                    {% for ip, data in stats.top_ips.items() %}
+                    <tr>
+                        <td class="mono">{{ ip }}</td>
+                        <td class="text-muted" style="font-size:0.8rem">
+                            {% if data.region %}<span class="region-badge"><i class="fas fa-location-dot"></i> {{ data.region }}</span>{% endif %}
+                        </td>
+                        <td class="text-right"><strong>{{ data.count }}</strong></td>
+                    </tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -81,7 +87,10 @@
             <tbody>
                 {% for log in access_logs %}
                 <tr>
-                    <td class="mono">{{ log.ip if log.ip else '-' }}</td>
+                    <td class="mono">
+                        {{ log.ip if log.ip else '-' }}
+                        {% if log.region %}<div class="region-badge" style="margin-top:2px"><i class="fas fa-location-dot"></i> {{ log.region }}</div>{% endif %}
+                    </td>
                     <td>{% if log.status %}<span class="status-badge status-{{ log.status // 100 }}xx">{{ log.status }}</span>{% else %}-{% endif %}</td>
                     <td class="mono text-truncate" style="max-width:300px">{{ log.request if log.request else log.get('raw', '-') }}</td>
                     <td class="text-muted">{{ log.bytes if log.bytes else '-' }}</td>

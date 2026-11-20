@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 import logging
+import threading
 from pathlib import Path
 from datetime import datetime
 
@@ -15,6 +16,21 @@ NGINX_CONF_DIR = "/etc/nginx/conf.d"
 NGINX_SSL_DIR = "/etc/nginx/ssl"
 NGINX_LOG_DIR = "/var/log/nginx"
 NGINX_BIN = "sudo /usr/sbin/nginx"
+
+# IP 地区查询 (ip2region 离线库)
+try:
+    from ip_region import ip_region_cached as _ip_region_cached
+except Exception:
+    def _ip_region_cached(ip):
+        return ''
+
+
+def ip_region(ip):
+    """查询 IP 地区 (带缓存)"""
+    try:
+        return _ip_region_cached(ip)
+    except Exception:
+        return ''
 
 
 def ensure_dirs():
@@ -418,6 +434,7 @@ def parse_access_log(log_file="access.log", lines=100):
             if match:
                 result.append({
                     'ip': match.group(1),
+                    'region': ip_region(match.group(1)),
                     'time': match.group(3),
                     'request': match.group(4),
                     'status': int(match.group(5)),
@@ -465,7 +482,12 @@ def get_log_stats(log_file="access.log"):
     except Exception as e:
         logger.error(f"Failed to stat log: {e}")
     
-    stats['top_ips'] = dict(sorted(stats['top_ips'].items(), key=lambda x: -x[1])[:10])
+    # top_ips 附带地区: {ip: {'count': n, 'region': '中国 北京'}}
+    top_ips = dict(sorted(stats['top_ips'].items(), key=lambda x: -x[1])[:10])
+    stats['top_ips'] = {
+        ip: {'count': count, 'region': ip_region(ip)}
+        for ip, count in top_ips.items()
+    }
     stats['top_urls'] = dict(sorted(stats['top_urls'].items(), key=lambda x: -x[1])[:10])
     
     return stats
