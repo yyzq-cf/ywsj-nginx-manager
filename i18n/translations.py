@@ -60,6 +60,8 @@ TRANSLATIONS = {
             'status_3xx': '3xx 重定向',
             'status_4xx': '4xx 客户端错误',
             'status_5xx': '5xx 服务端错误',
+            'notice_title': '📌 使用须知',
+            'notice': '修改代理/转发/证书配置后，建议点击「测试配置」确认无误，再「重载 Nginx」使变更生效。',
         },
         'hosts': {
             'title': '代理站点',
@@ -84,6 +86,8 @@ TRANSLATIONS = {
             'backends_hint': '可选，添加后启用 upstream 轮询高可用',
             'add_backend': '添加后端',
             'backend_host': '后端地址',
+            'notice_title': '📌 使用须知',
+            'notice': '新增代理前，请先将域名 A 记录解析到本服务器公网 IP，并确认防火墙/安全组已放行 80/443 端口。保存配置后自动执行 nginx -t 校验，失败会自动回滚，不影响现有站点。',
         },
         'ssl': {
             'title': 'SSL 证书',
@@ -154,6 +158,8 @@ TRANSLATIONS = {
             'issuing': '正在申请证书...',
             'issue_success': '✅ 证书申请成功',
             'issue_failed': '❌ 证书申请失败',
+            'notice_title': '📌 使用须知',
+            'notice': '泛域名证书(*)必须通过 DNS API 验证；Standalone 方式要求 80 端口空闲。证书到期前自动续期，续期成功自动重载 Nginx。吊销证书会同时删除本地文件。',
         },
         'redirects': {
             'title': '重定向',
@@ -163,6 +169,8 @@ TRANSLATIONS = {
             'target_placeholder': 'https://example.com',
             'permanent': '永久重定向 (301)',
             'preserve_path': '保留路径',
+            'notice_title': '📌 使用须知',
+            'notice': '同一域名同时配置代理和重定向时，重定向优先生效。301 永久重定向会影响 SEO，建议仅在域名迁移时使用；临时跳转请用 302。',
         },
         'streams': {
             'title': '端口转发',
@@ -173,6 +181,8 @@ TRANSLATIONS = {
             'protocol': '协议',
             'tcp': 'TCP',
             'udp': 'UDP',
+            'notice_title': '⚠️ 使用须知',
+            'notice': 'Docker 部署下，端口转发由 Nginx stream 模块实现。容器必须使用 host 网络模式（或手动映射每个监听端口），否则外部无法访问。转发目标为本机服务时，请填宿主机 IP 或内网 IP（容器内 127.0.0.1 指向的是容器自身）。',
         },
         'logs': {
             'title': '访问日志',
@@ -185,6 +195,8 @@ TRANSLATIONS = {
             'top_ips': 'Top IP',
             'top_urls': 'Top URL',
             'status_codes': '状态码分布',
+            'notice_title': '📌 使用须知',
+            'notice': '日志由容器内 Nginx 写入挂载目录（如 ./logs），容器重建不会丢失。日志量较大时可定期清理，避免占满磁盘。',
         },
         'settings': {
             'title': '设置',
@@ -301,6 +313,8 @@ TRANSLATIONS = {
             'status_3xx': '3xx Redirect',
             'status_4xx': '4xx Client Error',
             'status_5xx': '5xx Server Error',
+            'notice_title': '📌 Notes',
+            'notice': 'After changing proxy/stream/cert config, click "Test Config" to verify, then "Reload Nginx" to apply.',
         },
         'hosts': {
             'title': 'Proxy Hosts',
@@ -325,6 +339,8 @@ TRANSLATIONS = {
             'backends_hint': 'Optional, enables upstream round-robin HA',
             'add_backend': 'Add Backend',
             'backend_host': 'Backend Host',
+            'notice_title': '📌 Notes',
+            'notice': 'Before adding a proxy, point the domain A record to this server public IP and ensure ports 80/443 are open in firewall/security group. Config is auto-tested with nginx -t on save and rolls back on failure.',
         },
         'ssl': {
             'title': 'SSL Certificates',
@@ -395,6 +411,8 @@ TRANSLATIONS = {
             'issuing': 'Requesting certificate...',
             'issue_success': '✅ Certificate issued successfully',
             'issue_failed': '❌ Certificate issue failed',
+            'notice_title': '📌 Notes',
+            'notice': 'Wildcard (*) certificates require DNS API verification; Standalone mode requires port 80 free. Certificates auto-renew before expiry and Nginx reloads automatically. Revoking removes local files.',
         },
         'redirects': {
             'title': 'Redirects',
@@ -404,6 +422,8 @@ TRANSLATIONS = {
             'target_placeholder': 'https://example.com',
             'permanent': 'Permanent (301)',
             'preserve_path': 'Preserve Path',
+            'notice_title': '📌 Notes',
+            'notice': 'If the same domain has both a proxy host and a redirect, the redirect takes precedence. 301 affects SEO — use it only for domain migration; use 302 for temporary redirects.',
         },
         'streams': {
             'title': 'Streams',
@@ -414,6 +434,8 @@ TRANSLATIONS = {
             'protocol': 'Protocol',
             'tcp': 'TCP',
             'udp': 'UDP',
+            'notice_title': '⚠️ Notes',
+            'notice': 'Port forwarding uses the Nginx stream module. Under Docker the container must use host networking (or map each listen port) to be reachable from outside. To forward to a service on the same machine, use the host IP — 127.0.0.1 inside the container points to the container itself.',
         },
         'logs': {
             'title': 'Access Logs',
@@ -426,6 +448,8 @@ TRANSLATIONS = {
             'top_ips': 'Top IPs',
             'top_urls': 'Top URLs',
             'status_codes': 'Status Codes',
+            'notice_title': '📌 Notes',
+            'notice': 'Logs are written to the mounted directory (e.g. ./logs) and survive container rebuilds. Clean up logs periodically to avoid filling the disk.',
         },
         'settings': {
             'title': 'Settings',

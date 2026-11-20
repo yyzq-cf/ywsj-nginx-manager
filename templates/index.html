@@ -2,6 +2,14 @@
 {% block page_title %}{{ t('dashboard.title') }}{% endblock %}
 
 {% block content %}
+<div class="notice notice-info">
+    <i class="fas fa-circle-info"></i>
+    <div class="notice-body">
+        <div class="notice-title">{{ t('dashboard.notice_title') }}</div>
+        <div class="notice-text">{{ t('dashboard.notice') }}</div>
+    </div>
+</div>
+
 <div class="dashboard-grid">
     <!-- Nginx 状态卡片 -->
     <div class="card status-card {{ 'status-ok' if status.running else 'status-down' }}">
