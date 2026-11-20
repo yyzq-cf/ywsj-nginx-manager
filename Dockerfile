@@ -5,11 +5,16 @@ ENV APP_VERSION=${APP_VERSION}
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
-# 安装 nginx + acme.sh 依赖
+# 安装 nginx (nginx.org 官方源, 获取最新安全修复版本) + acme.sh 依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        nginx nginx-extras \
-        openssl \
         curl \
+        ca-certificates \
+        gnupg \
+        && curl -fsSL https://nginx.org/keys/nginx_signing.key | gpg --dearmor -o /usr/share/keyrings/nginx-archive-keyring.gpg \
+        && . /etc/os-release && echo "deb [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg] https://nginx.org/packages/debian ${VERSION_CODENAME} nginx" > /etc/apt/sources.list.d/nginx.list \
+        && apt-get update && apt-get install -y --no-install-recommends \
+        nginx \
+        openssl \
         socat \
         cron \
         gosu \
