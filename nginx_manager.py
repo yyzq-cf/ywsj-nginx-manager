@@ -244,7 +244,6 @@ def generate_stream_conf(listen_port, target_host, target_port, protocol="tcp"):
     return (
         "server {\n"
         f"    listen {listen_port}{proto}\n"
-        f"    listen [::{listen_port}]{proto}\n"
         f"    proxy_pass {target_host}:{target_port};\n"
         "}\n"
     )

@@ -707,7 +707,8 @@ def api_streams_create():
     conf = generate_stream_conf(listen_port, target_host, target_port, protocol)
     
     # stream 配置用不同文件名前缀
-    domain_name = f"stream_{listen_port}"
+    # 传端口数字, save_conf 内部会加 stream_ 前缀 (避免双重前缀生成 stream_stream_2222.conf)
+    domain_name = str(listen_port)
     filepath = save_conf(domain_name, conf, "stream")
     
     ok, output = nginx_test()
