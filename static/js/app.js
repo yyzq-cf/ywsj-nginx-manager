@@ -68,6 +68,36 @@ function showToast(message, type = 'info', duration = 3000) {
 }
 
 // ============ Nginx 操作 ============
+function escapeHtml(str) {
+    return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function testNginxConfig() {
+    const el = document.getElementById('confTestResult');
+    if (!el) return;
+    el.innerHTML = `<div class="alert alert-info" style="background:rgba(59,130,246,0.08);color:var(--info);border:1px solid rgba(59,130,246,0.25);display:flex;align-items:center;gap:8px">
+        <i class="fas fa-spinner fa-spin"></i> ${i18n.t('common.loading')}
+    </div>`;
+    fetch('/api/nginx/test')
+        .then(r => r.json())
+        .then(r => {
+            if (r.ok) {
+                el.innerHTML = `<div class="alert alert-success">${i18n.t('dashboard.conf_ok')}</div>`;
+            } else {
+                el.innerHTML = `<div class="alert alert-error">${i18n.t('dashboard.conf_error')}</div>
+                    <pre class="conf-error-output">${escapeHtml(r.output || '')}</pre>`;
+            }
+        })
+        .catch(() => {
+            el.innerHTML = `<div class="alert alert-error">❌ ${i18n.t('common.error')}</div>`;
+        });
+}
+
 function reloadNginx() {
     fetch('/api/nginx/reload', { method: 'POST' })
         .then(r => r.json())

@@ -62,6 +62,7 @@ TRANSLATIONS = {
             'status_5xx': '5xx 服务端错误',
             'notice_title': '📌 使用须知',
             'notice': '修改代理/转发/证书配置后，建议点击「测试配置」确认无误，再「重载 Nginx」使变更生效。',
+            'check_latest': '查看最新版本',
         },
         'hosts': {
             'title': '代理站点',
@@ -315,6 +316,7 @@ TRANSLATIONS = {
             'status_5xx': '5xx Server Error',
             'notice_title': '📌 Notes',
             'notice': 'After changing proxy/stream/cert config, click "Test Config" to verify, then "Reload Nginx" to apply.',
+            'check_latest': 'Check latest version',
         },
         'hosts': {
             'title': 'Proxy Hosts',

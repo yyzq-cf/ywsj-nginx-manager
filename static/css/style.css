@@ -229,6 +229,25 @@ body {
 .card-value { font-size: 1.5rem; font-weight: 700; }
 .card-sub { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
 
+.card-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.75rem;
+    color: var(--accent);
+    text-decoration: none;
+    margin-top: 6px;
+    padding: 3px 8px;
+    border-radius: var(--radius-sm);
+    background: rgba(59, 130, 246, 0.08);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    transition: var(--transition);
+}
+.card-link:hover {
+    background: rgba(59, 130, 246, 0.16);
+    border-color: rgba(59, 130, 246, 0.4);
+}
+
 .dashboard-row {
     display: grid;
     grid-template-columns: 1fr 1fr;

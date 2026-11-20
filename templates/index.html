@@ -18,6 +18,9 @@
             <div class="card-label">{{ t('dashboard.nginx_status') }}</div>
             <div class="card-value">{{ t('dashboard.running') if status.running else t('dashboard.stopped') }}</div>
             {% if status.version %}<div class="card-sub">{{ status.version }}</div>{% endif %}
+            <a href="https://nginx.org/en/download.html" target="_blank" rel="noopener" class="card-link">
+                <i class="fas fa-arrow-up-right-from-square"></i> {{ t('dashboard.check_latest') }}
+            </a>
         </div>
     </div>
 
@@ -57,9 +60,14 @@
     <div class="card config-check-card">
         <div class="card-header">
             <h3><i class="fas fa-wrench"></i> {{ t('common.test_config') }}</h3>
-            <button class="btn btn-sm btn-primary" onclick="reloadNginx()">
-                <i class="fas fa-rotate"></i> {{ t('common.reload') }}
-            </button>
+            <div class="header-actions" style="display:flex;gap:8px">
+                <button class="btn btn-sm btn-ghost" onclick="testNginxConfig()">
+                    <i class="fas fa-check"></i> {{ t('common.test_config') }}
+                </button>
+                <button class="btn btn-sm btn-primary" onclick="reloadNginx()">
+                    <i class="fas fa-rotate"></i> {{ t('common.reload') }}
+                </button>
+            </div>
         </div>
         <div class="conf-test-result" id="confTestResult">
             {% if status.conf_test %}
