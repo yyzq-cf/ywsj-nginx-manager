@@ -21,6 +21,8 @@ sleep 1
 
 # 修复权限 (在 nginx 启动后, 给 Flask appuser 读写权限)
 chown -R appuser:appgroup /data /var/www/html
+mkdir -p /var/www/html/.well-known/acme-challenge
+chown -R appuser:appgroup /var/www/html/.well-known
 chown -R appuser:appgroup /etc/nginx
 chown -R appuser:appgroup /var/log/nginx
 chown -R appuser:appgroup /var/lib/nginx
