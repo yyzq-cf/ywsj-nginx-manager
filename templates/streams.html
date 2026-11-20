@@ -25,12 +25,12 @@
             <tbody>
                 {% for s in streams %}
                 <tr>
-                    <td class="mono"><strong>{{ s.content.split('listen ')[1].split()[0] if 'listen ' in s.content else '-' }}</strong></td>
+                    <td class="mono"><strong>{{ s.content.split('listen ')[1].split()[0].rstrip(';') if 'listen ' in s.content else '-' }}</strong></td>
                     <td class="mono">{{ s.content.split('proxy_pass ')[1].split(':')[0] if 'proxy_pass ' in s.content else '-' }}</td>
                     <td class="mono">{{ s.content.split(':')[-1].split(';')[0] if 'proxy_pass' in s.content else '-' }}</td>
                     <td>{% if 'udp' in s.content %}<span class="badge badge-info">UDP</span>{% else %}<span class="badge badge-success">TCP</span>{% endif %}</td>
                     <td>
-                        {% set port_match = s.content.split('listen ')[1].split()[0] if 'listen ' in s.content else '' %}
+                        {% set port_match = s.content.split('listen ')[1].split()[0].rstrip(';') if 'listen ' in s.content else '' %}
                         <button class="btn btn-sm btn-danger" onclick="deleteStream('{{ port_match }}')">
                             <i class="fas fa-trash"></i>
                         </button>
