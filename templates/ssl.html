@@ -265,7 +265,18 @@
 
 {% block scripts %}
 <script>
-function showIssueModal() { document.getElementById('sslModal').classList.add('active'); }
+function showIssueModal() {
+    document.getElementById('sslModal').classList.add('active');
+    // 打开弹窗时自动回填默认邮箱（从账户设置读取）
+    const emailInput = document.getElementById('sslEmail');
+    if (emailInput && !emailInput.value) {
+        fetch('/api/account', { method: 'GET' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.email) emailInput.value = data.email;
+            }).catch(() => {});
+    }
+}
 
 function toggleDnsFields() {
     const provider = document.getElementById('dnsProvider').value;

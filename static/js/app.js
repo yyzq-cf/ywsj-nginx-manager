@@ -120,11 +120,14 @@ function loadUsername() {
                 const el = document.getElementById('usernameInput');
                 if (el) el.value = data.username;
             }
+            const emailEl = document.getElementById('emailInput');
+            if (emailEl) emailEl.value = data.email || '';
         }).catch(() => {});
 }
 
 function changeAccount() {
     const username = document.getElementById('usernameInput').value.trim();
+    const email = document.getElementById('emailInput').value.trim();
     const newPw = document.getElementById('newPassword').value;
     const confirmPw = document.getElementById('confirmPassword').value;
     const msgEl = document.getElementById('passwordMsg');
@@ -134,7 +137,7 @@ function changeAccount() {
         return;
     }
 
-    const body = { username };
+    const body = { username, email };
     if (newPw || confirmPw) {
         if (newPw !== confirmPw) {
             msgEl.innerHTML = `<span style="color: var(--error)">${i18n.t('settings.password_mismatch')}</span>`;

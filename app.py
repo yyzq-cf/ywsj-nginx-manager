@@ -123,6 +123,10 @@ def init_db():
             locked_until TEXT,
             last_attempt TEXT
         );
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL DEFAULT ''
+        );
     ''')
     # 自动迁移：添加缺失的列
     cols = [r[1] for r in db.execute("PRAGMA table_info(users)").fetchall()]
@@ -131,6 +135,8 @@ def init_db():
     if 'username' not in cols:
         db.execute("ALTER TABLE users ADD COLUMN username TEXT")
         db.execute("UPDATE users SET username = 'admin' WHERE username IS NULL")
+    if 'email' not in cols:
+        db.execute("ALTER TABLE users ADD COLUMN email TEXT")
     # proxy_hosts 表加 backends 字段
     pcols = [r[1] for r in db.execute("PRAGMA table_info(proxy_hosts)").fetchall()]
     if 'backends' not in pcols:
@@ -141,6 +147,22 @@ def init_db():
 @app.before_request
 def before_request():
     init_db()
+
+
+def get_setting(key, default=''):
+    db = get_db()
+    row = db.execute('SELECT value FROM settings WHERE key = ?', (key,)).fetchone()
+    return row['value'] if row else default
+
+
+def set_setting(key, value):
+    db = get_db()
+    db.execute(
+        'INSERT INTO settings (key, value) VALUES (?, ?) '
+        'ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+        (key, value or '')
+    )
+    db.commit()
 
 
 @app.teardown_appcontext
@@ -338,24 +360,32 @@ def setup():
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
         confirm = request.form.get('confirm', '')
-        
+        email = request.form.get('email', '').strip()
+
         if not username or len(username) < 2:
             return render_template('setup.html', error_key='setup.username_short')
         if password != confirm:
             return render_template('setup.html', error_key='setup.mismatch')
         if len(password) < 6:
             return render_template('setup.html', error_key='setup.mismatch')
-        
+        if email and '@' not in email:
+            return render_template('setup.html', error_key='setup.email_invalid')
+
         db = get_db()
         pw_hash = generate_password_hash(password, method='scrypt')
-        db.execute('INSERT INTO users (username, password_hash) VALUES (?, ?)', (username, pw_hash))
+        db.execute('INSERT INTO users (username, password_hash, email) VALUES (?, ?, ?)',
+                   (username, pw_hash, email or None))
         db.commit()
-        
+
+        # 保存 ACME 默认邮箱（SSL 证书申请/续期通知用）
+        if email:
+            set_setting('acme_email', email)
+
         # 初始化 nginx 和 acme
         ensure_dirs()
         ensure_acme()
         setup_cron_renew()
-        
+
         return render_template('setup.html', done=True)
     
     return render_template('setup.html')
@@ -766,9 +796,13 @@ def api_ssl_issue():
     test = bool(data.get('test', False))
     email = data.get('email', '').strip()
     ca = data.get('ca')
-    
+
     if not domain:
         return jsonify({'success': False, 'error': 'Domain required'}), 400
+
+    # 邮箱为空时回退到 setup/账户设置里配置的默认邮箱
+    if not email:
+        email = get_setting('acme_email')
     
     # 泛域名必须用 DNS API
     is_wildcard = domain.startswith('*.')
@@ -938,19 +972,23 @@ def api_logs_stats():
     return jsonify(stats)
 
 
-# ============ API: 账户设置（用户名+密码） ============
+# ============ API: 账户设置（用户名+密码+邮箱） ============
 @app.route('/api/account', methods=['GET', 'POST'])
 @login_required
 def api_update_account():
     if request.method == 'GET':
         db = get_db()
-        user = db.execute('SELECT username FROM users WHERE id = ?', (session['user_id'],)).fetchone()
-        return jsonify({'username': user['username'] if user else ''})
+        user = db.execute('SELECT username, email FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+        return jsonify({
+            'username': user['username'] if user else '',
+            'email': user['email'] if user else '',
+        })
 
     data = request.get_json()
     new_username = data.get('username', '').strip()
     new_password = data.get('new_password', '')
     confirm = data.get('confirm_password', '')
+    email = data.get('email', '').strip()
 
     db = get_db()
 
@@ -959,6 +997,13 @@ def api_update_account():
         if len(new_username) < 2:
             return jsonify({'success': False, 'error': 'Username too short (min 2)'}), 400
         db.execute('UPDATE users SET username = ? WHERE id = ?', (new_username, session['user_id']))
+
+    # 更新邮箱（可选，同时同步 ACME 默认邮箱）
+    if 'email' in data:
+        if email and '@' not in email:
+            return jsonify({'success': False, 'error': 'Invalid email address'}), 400
+        db.execute('UPDATE users SET email = ? WHERE id = ?', (email or None, session['user_id']))
+        set_setting('acme_email', email)
 
     # 更新密码（可选）
     if new_password or confirm:
