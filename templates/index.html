@@ -207,6 +207,10 @@
     // 弧长参数: 180° 半圆, 半径 80, stroke-width 12
     const ARC_LENGTH = Math.PI * 80;  // 半圆周长
 
+    // 警告/危险阈值 (从后端读取，默认 70/90)
+    const WARN_THRESHOLD = {{ monitor_cfg.warn }};
+    const DANGER_THRESHOLD = {{ monitor_cfg.danger }};
+
     const gauges = {
         cpu:   { fill: 'gaugeCpuFill',   needle: 'gaugeCpuNeedle',   val: 'gaugeCpuVal',   sub: 'gaugeCpuSub' },
         mem:   { fill: 'gaugeMemFill',   needle: 'gaugeMemNeedle',   val: 'gaugeMemVal',   sub: 'gaugeMemSub' },
@@ -236,10 +240,10 @@
         if (!fill) return;
         fill.classList.remove('gauge-warn', 'gauge-danger');
         if (needle) needle.classList.remove('gauge-warn', 'gauge-danger');
-        if (p >= 90) {
+        if (p >= DANGER_THRESHOLD) {
             fill.classList.add('gauge-danger');
             if (needle) needle.classList.add('gauge-danger');
-        } else if (p >= 70) {
+        } else if (p >= WARN_THRESHOLD) {
             fill.classList.add('gauge-warn');
             if (needle) needle.classList.add('gauge-warn');
         }

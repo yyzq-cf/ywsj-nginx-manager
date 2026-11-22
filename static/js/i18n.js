@@ -17,6 +17,9 @@ const I18N_TRANSLATIONS = {
         'dashboard.monitor_off': '未启用',
         'settings.password_changed': '密码修改成功',
         'settings.password_mismatch': '两次密码不一致',
+        'settings.monitor_preview': '🟣 0-{warn}% 正常 · 🟠 {warn}-{danger}% 警告 · 🔴 {danger}-100% 危险',
+        'settings.monitor_invalid': '阈值无效: 需满足 1 ≤ 警告 < 危险 ≤ 100',
+        'settings.monitor_saved': '✅ 阈值已保存，仪表盘已生效',
     },
     en: {
         'common.success': 'Success',
@@ -32,6 +35,9 @@ const I18N_TRANSLATIONS = {
         'dashboard.monitor_off': 'Not enabled',
         'settings.password_changed': 'Password changed successfully',
         'settings.password_mismatch': 'Passwords do not match',
+        'settings.monitor_preview': '🟣 0-{warn}% Normal · 🟠 {warn}-{danger}% Warning · 🔴 {danger}-100% Danger',
+        'settings.monitor_invalid': 'Invalid thresholds: must satisfy 1 ≤ warn < danger ≤ 100',
+        'settings.monitor_saved': '✅ Thresholds saved, dashboard updated',
     },
 };
 
@@ -47,7 +53,7 @@ const i18n = {
         }
         if (text === undefined) return key;
         for (const [k, v] of Object.entries(params)) {
-            text = text.replace(`{${k}}`, v);
+            text = text.replaceAll(`{${k}}`, String(v).replace(/\$/g, '$$$$'));
         }
         return text;
     },

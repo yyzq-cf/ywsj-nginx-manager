@@ -259,4 +259,52 @@ const origShowSettings = showSettings;
 showSettings = function() {
     origShowSettings();
     check2FAStatus();
+    loadMonitorSettings();
 };
+
+// ============ 监控阈值设置 ============
+function loadMonitorSettings() {
+    fetch('/api/monitor/settings', { method: 'GET' })
+        .then(r => r.json())
+        .then(data => {
+            const warnEl = document.getElementById('monitorWarn');
+            const dangerEl = document.getElementById('monitorDanger');
+            if (warnEl) warnEl.value = data.warn;
+            if (dangerEl) dangerEl.value = data.danger;
+            updateMonitorPreview(data.warn, data.danger);
+        }).catch(() => {});
+}
+
+function updateMonitorPreview(warn, danger) {
+    const el = document.getElementById('monitorPreviewText');
+    if (!el) return;
+    el.textContent = i18n.t('settings.monitor_preview', {warn, danger});
+}
+
+function saveMonitorSettings() {
+    const warn = parseInt(document.getElementById('monitorWarn').value);
+    const danger = parseInt(document.getElementById('monitorDanger').value);
+    const msgEl = document.getElementById('monitorSettingsMsg');
+
+    if (isNaN(warn) || isNaN(danger) || !(warn >= 1 && warn < danger && danger <= 100)) {
+        msgEl.innerHTML = `<span style="color:var(--error)">${i18n.t('settings.monitor_invalid')}</span>`;
+        return;
+    }
+
+    fetch('/api/monitor/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ warn, danger }),
+    }).then(r => r.json()).then(data => {
+        if (data.success) {
+            msgEl.innerHTML = `<span style="color:var(--success)">${i18n.t('settings.monitor_saved')}</span>`;
+            updateMonitorPreview(data.warn, data.danger);
+            // 提示刷新仪表盘生效
+            setTimeout(() => { msgEl.innerHTML = ''; }, 3000);
+        } else {
+            msgEl.innerHTML = `<span style="color:var(--error)">${data.error}</span>`;
+        }
+    }).catch(err => {
+        msgEl.innerHTML = `<span style="color:var(--error)">Error: ${err}</span>`;
+    });
+}

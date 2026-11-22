@@ -246,6 +246,10 @@ def index():
     log_stats = get_log_stats()
     recent_logs = parse_access_log(lines=10)
     monitor = get_monitor_data()
+    monitor_cfg = {
+        'warn': int(get_setting('monitor_warn', str(70))),
+        'danger': int(get_setting('monitor_danger', str(90))),
+    }
     
     return render_template('index.html',
         status=status,
@@ -256,6 +260,7 @@ def index():
         log_stats=log_stats,
         recent_logs=recent_logs,
         monitor=monitor,
+        monitor_cfg=monitor_cfg,
         version=APP_VERSION,
     )
 
@@ -467,6 +472,31 @@ def api_nginx_status():
 def api_monitor():
     """系统资源监控: CPU/内存/磁盘/SWAP"""
     return jsonify(get_monitor_data())
+
+
+@app.route('/api/monitor/settings', methods=['GET', 'POST'])
+@login_required
+def api_monitor_settings():
+    """监控阈值设置 (警告/危险)"""
+    if request.method == 'GET':
+        return jsonify({
+            'warn': int(get_setting('monitor_warn', str(70))),
+            'danger': int(get_setting('monitor_danger', str(90))),
+        })
+
+    data = request.get_json() or {}
+    try:
+        warn = int(data.get('warn', 70))
+        danger = int(data.get('danger', 90))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Invalid threshold'}), 400
+
+    if not (1 <= warn < danger <= 100):
+        return jsonify({'success': False, 'error': 'Thresholds must satisfy 1 <= warn < danger <= 100'}), 400
+
+    set_setting('monitor_warn', str(warn))
+    set_setting('monitor_danger', str(danger))
+    return jsonify({'success': True, 'warn': warn, 'danger': danger})
 
 
 @app.route('/api/nginx/test')
