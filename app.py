@@ -33,6 +33,7 @@ from ssl_manager import (
     issue_cert, renew_cert, revoke_cert, list_certs, get_cert_info,
     ensure_acme, setup_cron_renew, DNS_PROVIDERS,
 )
+from monitor import get_monitor_data
 
 # ============ 配置 ============
 APP_VERSION = os.environ.get('APP_VERSION', 'dev')
@@ -244,6 +245,7 @@ def index():
     
     log_stats = get_log_stats()
     recent_logs = parse_access_log(lines=10)
+    monitor = get_monitor_data()
     
     return render_template('index.html',
         status=status,
@@ -253,6 +255,7 @@ def index():
         ssl_count=len(certs),
         log_stats=log_stats,
         recent_logs=recent_logs,
+        monitor=monitor,
         version=APP_VERSION,
     )
 
@@ -457,6 +460,13 @@ def change_language():
 @login_required
 def api_nginx_status():
     return jsonify(get_nginx_status())
+
+
+@app.route('/api/monitor')
+@login_required
+def api_monitor():
+    """系统资源监控: CPU/内存/磁盘/SWAP"""
+    return jsonify(get_monitor_data())
 
 
 @app.route('/api/nginx/test')

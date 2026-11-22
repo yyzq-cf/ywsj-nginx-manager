@@ -205,6 +205,93 @@ body {
     margin-bottom: 20px;
 }
 
+/* ============ 系统监控 (指针式仪表) ============ */
+.monitor-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.monitor-card {
+    padding: 16px 14px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.monitor-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+.monitor-label i { color: var(--accent); }
+
+.gauge {
+    width: 100%;
+    max-width: 170px;
+    height: auto;
+    overflow: visible;
+}
+
+.gauge-track {
+    stroke: var(--border);
+    stroke-width: 12;
+    stroke-linecap: round;
+}
+
+.gauge-fill {
+    stroke: var(--accent);
+    stroke-width: 12;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.8s ease, stroke 0.4s ease;
+    transform: rotate(0deg);
+    transform-origin: 100px 110px;
+}
+
+.gauge-needle {
+    stroke: var(--text);
+    stroke-width: 3;
+    stroke-linecap: round;
+    transition: transform 0.8s cubic-bezier(0.34, 1.3, 0.5, 1);
+    transform-origin: 100px 110px;
+}
+
+.gauge-pivot {
+    fill: var(--accent);
+    stroke: var(--card);
+    stroke-width: 2;
+}
+
+.gauge-value {
+    font-size: 1.55rem;
+    font-weight: 700;
+    margin-top: 4px;
+    font-variant-numeric: tabular-nums;
+}
+.gauge-unit { font-size: 0.85rem; color: var(--muted); margin-left: 2px; }
+
+.gauge-sub {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+/* 用量分级颜色 */
+.gauge-fill.gauge-danger { stroke: var(--error); }
+.gauge-fill.gauge-warn { stroke: #f59e0b; }
+.gauge-needle.gauge-danger { stroke: var(--error); }
+.gauge-needle.gauge-warn { stroke: #f59e0b; }
+
 .stat-card, .status-card {
     display: flex;
     align-items: center;
